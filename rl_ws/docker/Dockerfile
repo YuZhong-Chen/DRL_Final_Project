@@ -56,6 +56,10 @@ RUN locale-gen en_US en_US.UTF-8 \
     ros-humble-desktop \
     python3-colcon-common-extensions
 
+# Install ros2 dependencies
+RUN apt-get update && apt-get install -y \
+    ros-humble-gazebo-msgs
+
 # Install pytorch dependencies
 # Reference : https://forums.developer.nvidia.com/t/unable-to-import-pytorch/154016
 RUN apt-get install -y libopenblas-base
