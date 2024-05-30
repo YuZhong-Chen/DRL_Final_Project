@@ -73,17 +73,9 @@ def generate_launch_description():
             ":",
             "/usr/share/gazebo-11/models/",
             ":",
-            str(
-                Path(get_package_share_directory("kobuki_description")).parent.resolve()
-            ),
+            str(Path(get_package_share_directory("kobuki_description")).parent.resolve()),
             ":",
             get_package_share_directory("kobuki_gazebo") + "/models/turtlebot3",
-            ":",
-            get_package_share_directory("kobuki_gazebo") + "/models/aws_hospital",
-            ":",
-            get_package_share_directory("kobuki_gazebo") + "/models/aws_warehouse",
-            ":",
-            get_package_share_directory("kobuki_gazebo") + "/models/fuel_models",
             ":",
             EnvironmentVariable("GAZEBO_MODEL_PATH", default_value=""),
         ],
@@ -104,9 +96,7 @@ def generate_launch_description():
     )
 
     # The path of .rviz file.
-    rviz_config_path = PathJoinSubstitution(
-        [FindPackageShare("kobuki_rviz"), "rviz", "gazebo.rviz"]
-    )
+    rviz_config_path = PathJoinSubstitution([FindPackageShare("kobuki_rviz"), "rviz", "gazebo.rviz"])
 
     # Launch rviz2.
     launch_rviz = IncludeLaunchDescription(
@@ -139,21 +129,6 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration("spawn_kobuki")),
     )
 
-    # Launch Kobuki's control
-    launch_kobuki_control = IncludeLaunchDescription(
-        PathJoinSubstitution(
-            [
-                FindPackageShare("kobuki_control"),
-                "launch",
-                "control.launch.py",
-            ]
-        ),
-        launch_arguments={
-            "use_sim_time": LaunchConfiguration("use_sim_time"),
-        }.items(),
-        condition=IfCondition(LaunchConfiguration("spawn_kobuki")),
-    )
-
     # Spawn robot
     spawn_robot = Node(
         package="gazebo_ros",
@@ -175,7 +150,6 @@ def generate_launch_description():
     ld.add_action(gz_resource_path)
     ld.add_action(launch_gazebo)
     ld.add_action(launch_kobuki_description)
-    ld.add_action(launch_kobuki_control)
     ld.add_action(spawn_robot)
     ld.add_action(launch_rviz)
 
