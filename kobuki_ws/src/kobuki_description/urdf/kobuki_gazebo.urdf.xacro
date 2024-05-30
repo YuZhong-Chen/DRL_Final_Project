@@ -46,7 +46,8 @@
 	      <update_rate>50.0</update_rate>
 	      <visualize>false</visualize>
 	      <contact>
-            <!-- Reference: https://answers.ros.org/question/334143/gazebo-bumper-sensor-states-msg-shows-no-output/ -->
+            <!-- Reference -->
+            <!-- https://answers.ros.org/question/334143/gazebo-bumper-sensor-states-msg-shows-no-output/ -->
 	        <collision>base_link_fixed_joint_lump__base_collision</collision>
 	      </contact>
           <plugin name="plugin_name" filename="libgazebo_ros_bumper.so">
