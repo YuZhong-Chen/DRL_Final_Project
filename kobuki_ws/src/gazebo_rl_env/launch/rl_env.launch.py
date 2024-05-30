@@ -35,7 +35,7 @@ def generate_launch_description():
     # Launch Gazebo
     launch_gazebo = IncludeLaunchDescription(
         PathJoinSubstitution(
-            [FindPackageShare("kobuki_gazebo"), "launch", "tb3_world.launch.py"],
+            [FindPackageShare("kobuki_gazebo"), "launch", "aws_small_house.launch.py"],
         ),
         launch_arguments={
             "spawn_kobuki": LaunchConfiguration("spawn_kobuki"),
