@@ -44,10 +44,17 @@
 	    <sensor type="contact" name="bumpers">
 	      <always_on>1</always_on>
 	      <update_rate>50.0</update_rate>
-	      <visualize>true</visualize>
+	      <visualize>false</visualize>
 	      <contact>
-	        <collision>base_footprint_fixed_joint_lump__base_collision</collision>
+            <!-- Reference: https://answers.ros.org/question/334143/gazebo-bumper-sensor-states-msg-shows-no-output/ -->
+	        <collision>base_link_fixed_joint_lump__base_collision</collision>
 	      </contact>
+          <plugin name="plugin_name" filename="libgazebo_ros_bumper.so">
+            <ros>
+                <remapping>bumper_states:=/collision</remapping>
+            </ros>
+            <frame_name>world</frame_name>
+          </plugin>
 	    </sensor>
 	  </gazebo>
 
