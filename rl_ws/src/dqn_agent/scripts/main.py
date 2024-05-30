@@ -32,7 +32,7 @@ USE_LOGGER = True
 USE_WANDB = False
 #############################################################################################
 
-checkpoint_dir = Path("/home/ros2-agv-essentials/rl_ws/checkpoints")
+checkpoint_dir = Path("/home/DRL_Final_Project/rl_ws/checkpoints")
 checkpoint_dir.mkdir(exist_ok=True)
 project_dir = checkpoint_dir / PROJECT_NAME
 project_dir.mkdir(exist_ok=True)
@@ -101,7 +101,7 @@ def main(args=None):
             observation = next_observation
 
             episode_step += 1
-            if episode_step > 70:
+            if episode_step > 70 or done:
                 break
 
         agent.current_episode = episode
