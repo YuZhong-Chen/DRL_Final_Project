@@ -12,6 +12,7 @@ from ament_index_python.packages import get_package_share_directory
 import os
 import math
 import time
+import yaml
 import numpy as np
 
 
@@ -83,13 +84,59 @@ class GAZEBO_RL_ENV_NODE(Node):
         self.ball_urdf = open(ball_urdf_path, "r").read()
 
         self.target_list = [None for _ in range(10)]
-        
-        self.reset()
+
+        # Graph
+        self.node_list = []
+        self.edge_list = []
+
+        # Initialize
+        self.read_graph()
+        # self.reset()
+
+    def read_graph(self):
+        file_path = os.path.join(get_package_share_directory("gazebo_rl_env"), "map", "small_house.yaml")
+
+        # Load the graph from the YAML file
+        graph = None
+        with open(file_path, "r") as stream:
+            try:
+                graph = yaml.safe_load(stream)
+            except yaml.YAMLError as exc:
+                self.get_logger().error(exc)
+
+        if graph is not None:
+            self.node_list = graph["node"]
+            self.edge_list = graph["edge"]
+            self.get_logger().info("Graph is loaded successfully.")
+            # self.get_logger().info(f"Node list: {self.node_list}")
+            # self.get_logger().info(f"Edge list: {self.edge_list}")
+
+    def get_node_index(self, node_name: str):
+        for node in self.node_list:
+            if node["name"] == node_name:
+                return node["index"]
+        return None
+
+    def get_path(self, target_endpoint: list):
+        # Ensure the target_endpoint is in ascending order
+        if target_endpoint[0] > target_endpoint[1]:
+            temp = target_endpoint[0]
+            target_endpoint[0] = target_endpoint[1]
+            target_endpoint[1] = temp
+
+        # Find the path in the edge list
+        path = []
+        for edge in self.edge_list:
+            if edge["endpoint"] == target_endpoint:
+                path = edge["path"]
+                break
+
+        return path
 
     def reset(self):
         self.current_timestamp = 0
         self.current_reward = 0.0
-        
+
         self.delete_target()
 
         while not self.reset_world_client.wait_for_service(timeout_sec=self.config["gazebo_service_timeout"]):
@@ -105,7 +152,7 @@ class GAZEBO_RL_ENV_NODE(Node):
             self.get_logger().info('Gazebo service "pause" not available, waiting again...')
         future = self.pause_client.call_async(Empty.Request())
         rclpy.spin_until_future_complete(self, future, timeout_sec=self.config["gazebo_service_timeout"])
-        
+
         self.generate_target()
 
         self.get_logger().info("Reset environment.")
@@ -236,7 +283,7 @@ class GAZEBO_RL_ENV_NODE(Node):
                 self.target_list[i].y = y
                 self.target_list[i].z = z
                 self.get_logger().info(f"Target {name} is reset to position ({x}, {y}, {z})")
-    
+
     def delete_target(self):
         for i in range(10):
             if self.target_list[i] is not None:

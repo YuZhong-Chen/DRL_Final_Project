@@ -11,9 +11,11 @@ ament_python_install_package(${PROJECT_NAME})
 
 # Install Python executables
 install(PROGRAMS scripts/main.py DESTINATION lib/${PROJECT_NAME})
+install(PROGRAMS scripts/test_map.py DESTINATION lib/${PROJECT_NAME})
 
 # Install files
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY urdf DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY map DESTINATION share/${PROJECT_NAME})
 
 ament_package()
