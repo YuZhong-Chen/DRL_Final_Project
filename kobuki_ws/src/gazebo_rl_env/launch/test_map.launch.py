@@ -13,7 +13,7 @@ def generate_launch_description():
             [FindPackageShare("kobuki_gazebo"), "launch", "aws_small_house.launch.py"],
         ),
         launch_arguments={
-            "spawn_kobuki": "False",
+            "spawn_kobuki": "True",
         }.items(),
     )
 
@@ -26,7 +26,7 @@ def generate_launch_description():
     )
 
     ld = LaunchDescription()
-    # ld.add_action(launch_gazebo)
+    ld.add_action(launch_gazebo)
     ld.add_action(launch_test_map)
 
     return ld
