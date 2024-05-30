@@ -17,7 +17,8 @@
                 "mhutchie.git-graph",
                 "streetsidesoftware.code-spell-checker",
                 "ms-iot.vscode-ros",
-                "ms-python.black-formatter"
+                "ms-python.black-formatter",
+                "oderwat.indent-rainbow"
             ]
         }
     },
