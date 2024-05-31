@@ -137,7 +137,7 @@ class GAZEBO_RL_ENV_NODE(Node):
 
         return path
 
-    def reset(self):
+    def reset(self, target_endpoints: list[int, int] = None):
         self.current_timestamp = 0
         self.current_reward = 0.0
 
@@ -149,7 +149,7 @@ class GAZEBO_RL_ENV_NODE(Node):
 
         # Generate the new path list randomly
         # NOTE: Change the endpoints to generate specific paths when testing
-        self.generate_path_list(endpoints=None)
+        self.generate_path_list(endpoints=target_endpoints)
 
         # Move the Kobuki to the start point.
         kobuki_start_point_index = self.endpoints[np.random.randint(0, 2)]
