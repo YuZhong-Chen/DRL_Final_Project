@@ -17,8 +17,9 @@ import numpy as np
 
 timestamp = 0
 reward = 0
+info = {"is_collision": False}
+done = False
 observation = None
-is_collision = None
 
 
 class OBSERVATION_SUBSCRIBER(Node):
@@ -42,13 +43,14 @@ class ENV_INFO_SUBSCRIBER(Node):
         self.collision_subscriber = self.create_subscription(ContactsState, "/collision", self.collision_callback, 10)
 
     def env_info_callback(self, msg):
-        global timestamp, reward
+        global timestamp, reward, done
         timestamp = msg.data[0]
         reward = msg.data[1]
+        done = msg.data[2]
 
     def collision_callback(self, msg):
-        global is_collision
-        is_collision = msg.states != []
+        global info
+        info["is_collision"] = msg.states != []
 
 
 class RL_ENV(Node):
@@ -111,19 +113,20 @@ class RL_ENV(Node):
         rclpy.spin_until_future_complete(self, future)
 
         # Call the step service for the first time
-        observation, _, _ = self.step(0)
+        observation, _, _, _ = self.step(0)
         return observation
 
     def step(self, action: int):
-        global observation, reward, is_collision
+        global observation, reward, done, info
 
         # Since we need to wait for the data coming from the subscriber,
         # we set them to None first, and then wait for them to be updated.
         old_observation = observation
         old_reward = reward
-        old_is_collision = is_collision
+        old_done = done
+        old_info = info
 
-        observation = reward = is_collision = None
+        observation = reward = done = info["is_collision"] = None
 
         self.publish_action(action)
 
@@ -137,14 +140,14 @@ class RL_ENV(Node):
         # Wait for the data to be updated.
         # If the data is not updated, use the old data.
         for _ in range(10):
-            if observation is None or reward is None or is_collision is None:
+            if observation is None or reward is None or done is None or info["is_collision"] is None:
                 # self.get_logger().info(f'Env service "step" is waiting for data...')
                 time.sleep(0.01)
             else:
                 break
 
-        if observation is None or reward is None or is_collision is None:
+        if observation is None or reward is None or done is None or info["is_collision"] is None:
             self.get_logger().error('Env service "step" failed to receive data, use the old data.')
-            return old_observation, old_reward, old_is_collision
+            return old_observation, old_reward, old_done, old_info
 
-        return observation, reward, is_collision
+        return observation, reward, done, info

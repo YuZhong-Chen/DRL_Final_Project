@@ -86,7 +86,7 @@ def main(args=None):
         while True:
             action = agent.Act(observation)
 
-            next_observation, reward, done = env.step(action)
+            next_observation, reward, done, info = env.step(action)
             next_observation = ProcessObservation(next_observation)
 
             agent.AddToReplayBuffer(observation, action, reward, next_observation)
@@ -101,7 +101,7 @@ def main(args=None):
             observation = next_observation
 
             episode_step += 1
-            if episode_step > 70 or done:
+            if done or info["is_collision"]:
                 break
 
         agent.current_episode = episode

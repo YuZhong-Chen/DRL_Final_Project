@@ -61,12 +61,14 @@ class GAZEBO_RL_ENV_NODE(Node):
             "step_time_delta": 0.5,  # seconds
             "gazebo_service_timeout": 1.0,  # seconds
             "reach_target_distance": 0.2,  # meters
-            "target_reward": 100,
+            "target_reward": 10,
             "penalty_per_step": -0.01,
+            "max_step_without_reach_target": 30,
         }
 
         self.current_timestamp = 0
         self.current_reward = 0.0
+        self.step_without_reach_target = 0
 
         # Create the clients for the Gazebo services
         self.pause_client = self.create_client(Empty, "/pause_physics")
@@ -140,6 +142,7 @@ class GAZEBO_RL_ENV_NODE(Node):
     def reset(self, target_endpoints: list[int, int] = None):
         self.current_timestamp = 0
         self.current_reward = 0.0
+        self.step_without_reach_target = 0
 
         # Reset the gazebo environment
         while not self.reset_world_client.wait_for_service(timeout_sec=self.config["gazebo_service_timeout"]):
@@ -202,6 +205,7 @@ class GAZEBO_RL_ENV_NODE(Node):
         self.current_reward = self.config["penalty_per_step"]
 
         # Check whether the Kobuki reaches the target
+        is_reach_target = False
         state = self.get_kobuki_state()
         for i in range(len(self.ball_list)):
             if self.ball_list[i] is not None:
@@ -211,6 +215,11 @@ class GAZEBO_RL_ENV_NODE(Node):
                     self.delete_ball(self.ball_list[i].name)
                     self.current_reward = self.config["target_reward"]
                     self.ball_list[i] = None
+                    is_reach_target = True
+
+        # If the Kobuki does not reach the target, increase the step_without_reach_target
+        if not is_reach_target:
+            self.step_without_reach_target += 1
 
         # Publish the information
         self.publish_info()
@@ -340,6 +349,11 @@ class GAZEBO_RL_ENV_NODE(Node):
         # Add the reward
         msg.layout.dim.append(MultiArrayDimension(label="reward", size=1, stride=1))
         msg.data.append(self.current_reward)
+
+        # Add the done signal
+        done = self.step_without_reach_target >= self.config["max_step_without_reach_target"]
+        msg.layout.dim.append(MultiArrayDimension(label="done", size=1, stride=1))
+        msg.data.append(done)
 
         # Publish the message
         self.info_publisher.publish(msg)
