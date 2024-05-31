@@ -73,8 +73,8 @@ class RL_ENV(Node):
         # 1 - forward
         # 2 - forward right
         # 3 - forward left
-        # 5 - turn right
-        # 6 - turn left
+        # 4 - turn right
+        # 5 - turn left
         self.action_space = 6
 
         self.timestamp = 0
