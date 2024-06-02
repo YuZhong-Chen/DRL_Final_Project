@@ -29,7 +29,7 @@ def main(args=None):
 
     while True:
         # TODO: This is a temporary solution, and it may not be the best solution,
-        time.sleep(0.05)
+        time.sleep(0.01)
 
         if reset_service_node.is_reset:
             gazebo_rl_env.reset()

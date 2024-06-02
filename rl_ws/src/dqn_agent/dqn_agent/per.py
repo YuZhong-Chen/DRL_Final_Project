@@ -17,23 +17,25 @@ class PRIORITIZED_EXPERIENCE_REPLAY:
 
         # Initialize the replay buffer
         # Note that the state is stored as int8 to save memory.
-        self.state = torch.zeros((capacity, *state_shape), dtype=torch.int8).to(self.device)
+        self.state = torch.zeros((capacity, *state_shape), dtype=torch.int8)
         self.action = torch.zeros((capacity, 1), dtype=torch.int8).to(self.device)
         self.reward = torch.zeros((capacity, 1), dtype=torch.int8).to(self.device)
-        self.next_state = torch.zeros((capacity, *state_shape), dtype=torch.int8).to(self.device)
+        self.done = torch.zeros((capacity, 1), dtype=torch.bool).to(self.device)
+        self.next_state = torch.zeros((capacity, *state_shape), dtype=torch.int8)
         self.priority = torch.ones(capacity, dtype=torch.float32)
 
     def Sample(self, batch_size=32):
         # Here I use the torch.multinomial function to sample the index of the transitions.
         # Normally, it should be implemented with a SumTree data structure.
         # In order to make the code simple, and speed up the training process, I use the torch.multinomial function.
-        self.sample_index = torch.multinomial(self.priority[:self.current_size], batch_size, replacement=True)
-        return self.state[self.sample_index], self.action[self.sample_index], self.reward[self.sample_index], self.next_state[self.sample_index]
+        self.sample_index = torch.multinomial(self.priority[: self.current_size], batch_size, replacement=True)
+        return self.state[self.sample_index], self.action[self.sample_index], self.reward[self.sample_index], self.done[self.sample_index], self.next_state[self.sample_index]
 
-    def Add(self, state, action, reward, next_state):
+    def Add(self, state: np.ndarray, action: int, reward: int, done: bool, next_state: np.ndarray):
         self.state[self.replace_index] = torch.tensor(np.array(state), dtype=torch.int8)
         self.action[self.replace_index] = action
         self.reward[self.replace_index] = reward
+        self.done[self.replace_index] = done
         self.next_state[self.replace_index] = torch.tensor(np.array(next_state), dtype=torch.int8)
         self.priority[self.replace_index] = self.priority.max()
 
