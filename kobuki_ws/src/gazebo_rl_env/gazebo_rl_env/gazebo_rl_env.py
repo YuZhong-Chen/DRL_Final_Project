@@ -30,7 +30,7 @@ class RESET_SERVICE(Node):
         while self.is_reset:
             # Wait for the reset to finish
             # Note that the reset will be finished in the main thread
-            time.sleep(0.05)
+            time.sleep(0.01)
 
         return response
 
@@ -48,7 +48,7 @@ class STEP_SERVICE(Node):
         while self.is_step:
             # Wait for the step to finish
             # Note that the step will be finished in the main thread
-            time.sleep(0.05)
+            time.sleep(0.01)
 
         return response
 
@@ -59,16 +59,17 @@ class GAZEBO_RL_ENV_NODE(Node):
 
         self.config = {
             "step_time_delta": 0.5,  # seconds
-            "gazebo_service_timeout": 1.0,  # seconds
+            "gazebo_service_timeout": 2.0,  # seconds
             "reach_target_distance": 0.2,  # meters
             "target_reward": 10,
-            "penalty_per_step": -0.01,
-            "max_step_without_reach_target": 30,
+            "penalty_per_step": -0.05,
+            "max_step_without_reach_target": 25,
         }
 
         self.current_timestamp = 0
         self.current_reward = 0.0
         self.step_without_reach_target = 0
+        self.is_done = False
 
         # Create the clients for the Gazebo services
         self.pause_client = self.create_client(Empty, "/pause_physics")
@@ -143,6 +144,7 @@ class GAZEBO_RL_ENV_NODE(Node):
         self.current_timestamp = 0
         self.current_reward = 0.0
         self.step_without_reach_target = 0
+        self.is_done = False
 
         # Reset the gazebo environment
         while not self.reset_world_client.wait_for_service(timeout_sec=self.config["gazebo_service_timeout"]):
@@ -211,7 +213,11 @@ class GAZEBO_RL_ENV_NODE(Node):
             if self.ball_list[i] is not None:
                 distance = self.ball_list[i].get_distance(state)
                 if distance < self.config["reach_target_distance"]:
-                    self.get_logger().info(f"Kobuki reaches target {self.ball_list[i].name} at timestamp {self.current_timestamp}")
+                    # If the Kobuki reaches the endpoint, set the done signal to True
+                    if self.ball_list[i].name == "ball_endpoint":
+                        self.is_done = True
+
+                    # self.get_logger().info(f"Kobuki reaches target {self.ball_list[i].name} at timestamp {self.current_timestamp}")
                     self.delete_ball(self.ball_list[i].name)
                     self.current_reward = self.config["target_reward"]
                     self.ball_list[i] = None
@@ -220,6 +226,8 @@ class GAZEBO_RL_ENV_NODE(Node):
         # If the Kobuki does not reach the target, increase the step_without_reach_target
         if not is_reach_target:
             self.step_without_reach_target += 1
+        else:
+            self.step_without_reach_target = 0
 
         # Publish the information
         self.publish_info()
@@ -286,16 +294,19 @@ class GAZEBO_RL_ENV_NODE(Node):
         while not self.get_entity_state_client.wait_for_service(timeout_sec=self.config["gazebo_service_timeout"]):
             self.get_logger().info('Gazebo service "get_entity_state" not available, waiting again...')
 
-        response = None
-        while response is None:
-            future = self.get_entity_state_client.call_async(self.get_kobuki_state_request)
+        # Get the state of the Kobuki
+        future = self.get_entity_state_client.call_async(self.get_kobuki_state_request)
 
-            # Get the response
-            rclpy.spin_until_future_complete(self, future, timeout_sec=self.config["gazebo_service_timeout"])
-            response = future.result()
+        # Get the response
+        rclpy.spin_until_future_complete(self, future, timeout_sec=self.config["gazebo_service_timeout"])
+        response = future.result()
 
-            if response is None:
-                self.get_logger().info('Gazebo service "get_entity_state" call failed, waiting again...')
+        if response is None:
+            self.get_logger().error("Failed to get the state of the Kobuki.")
+            response = GetEntityState.Response()
+            response.state.pose.position.x = 1000
+            response.state.pose.position.y = 1000
+            response.state.pose.position.z = 0
 
         # Print the state
         # kobuki_pose = response.state.pose
@@ -351,9 +362,12 @@ class GAZEBO_RL_ENV_NODE(Node):
         msg.data.append(self.current_reward)
 
         # Add the done signal
-        done = self.step_without_reach_target >= self.config["max_step_without_reach_target"]
-        msg.layout.dim.append(MultiArrayDimension(label="done", size=1, stride=1))
-        msg.data.append(done)
+        msg.layout.dim.append(MultiArrayDimension(label="success", size=1, stride=1))
+        msg.data.append(self.is_done)
+
+        # Add the max_step_without_reach_target
+        msg.layout.dim.append(MultiArrayDimension(label="is_reach_max_step", size=1, stride=1))
+        msg.data.append(self.step_without_reach_target >= self.config["max_step_without_reach_target"])
 
         # Publish the message
         self.info_publisher.publish(msg)
