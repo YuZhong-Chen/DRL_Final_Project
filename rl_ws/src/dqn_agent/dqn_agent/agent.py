@@ -76,7 +76,7 @@ class AGENT:
     def UpdateEpsilon(self) -> None:
 
         # Update the epsilon using the exponential decay function.
-        self.epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * math.exp(-1.0 * self.current_step / self.epsilon_decay)
+        self.epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * math.exp(-1.0 * self.current_episode / self.epsilon_decay)
         
 
     def Act(self, state):
