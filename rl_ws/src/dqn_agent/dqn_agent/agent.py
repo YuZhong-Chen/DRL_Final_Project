@@ -23,6 +23,9 @@ class AGENT:
             "optimizer": "AdamW",
             "loss": "MSE",
             "max_grad_norm": 10.0,
+            "epsilon_start": 0.95,
+            "epsilon_end": 0.01,
+            "epsilon_decay": 3000,
         }
 
         self.network = None
@@ -64,10 +67,33 @@ class AGENT:
         elif self.config["loss"] == "SmoothL1Loss":
             self.loss = nn.SmoothL1Loss()
 
+        # Add the epsilon parameters
+        self.epsilon_start = self.config["epsilon_start"]
+        self.epsilon_end = self.config["epsilon_end"]
+        self.epsilon_decay = self.config["epsilon_decay"]
+        self.epsilon = self.epsilon_start
+
+    def UpdateEpsilon(self) -> None:
+
+        # Update the epsilon using the exponential decay function.
+        self.epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * math.exp(-1.0 * self.current_step / self.epsilon_decay)
+        
+
     def Act(self, state):
-        with torch.no_grad():
-            state = torch.tensor(np.array(state), dtype=torch.int8).unsqueeze(0).to(self.device)
-            action = torch.argmax(self.network.learning_network(state)).item()
+        # with torch.no_grad():
+        #     state = torch.tensor(np.array(state), dtype=torch.int8).unsqueeze(0).to(self.device)
+        #     action = torch.argmax(self.network.learning_network(state)).item()
+
+        # With epsilon-greedy policy
+        self.UpdateEpsilon()
+
+        if np.random.rand() < self.epsilon:
+            action = np.random.randint(self.action_space_len)
+        else:
+            with torch.no_grad():
+                state = torch.tensor(np.array(state), dtype=torch.int8).unsqueeze(0).to(self.device)
+                action = torch.argmax(self.network.learning_network(state)).item()
+
         return action
 
     def AddToReplayBuffer(self, state, action, reward, done, next_state):
