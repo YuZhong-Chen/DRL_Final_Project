@@ -15,8 +15,8 @@ def main(args=None):
     gazebo_rl_env = GAZEBO_RL_ENV_NODE()
 
     while True:
-        time.sleep(2.0)
         gazebo_rl_env.reset()
+        time.sleep(1.0)
 
 
 if __name__ == "__main__":

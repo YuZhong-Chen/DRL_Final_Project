@@ -59,7 +59,7 @@ class GAZEBO_RL_ENV_NODE(Node):
 
         self.config = {
             "step_time_delta": 0.5,  # seconds
-            "gazebo_service_timeout": 2.0,  # seconds
+            "gazebo_service_timeout": 3.0,  # seconds
             "reach_target_distance": 0.2,  # meters
             "target_reward": 10,
             "penalty_per_step": -0.05,
@@ -98,7 +98,6 @@ class GAZEBO_RL_ENV_NODE(Node):
 
         # Initialize
         self.read_graph()
-        self.reset()
 
     def read_graph(self):
         file_path = os.path.join(get_package_share_directory("gazebo_rl_env"), "map", "small_house_2.yaml")
@@ -125,16 +124,18 @@ class GAZEBO_RL_ENV_NODE(Node):
         return None
 
     def get_path(self, target_endpoint: list):
+        endpoint = target_endpoint.copy()
+
         # Ensure the target_endpoint is in ascending order
-        if target_endpoint[0] > target_endpoint[1]:
-            temp = target_endpoint[0]
-            target_endpoint[0] = target_endpoint[1]
-            target_endpoint[1] = temp
+        if endpoint[0] > endpoint[1]:
+            temp = endpoint[0]
+            endpoint[0] = endpoint[1]
+            endpoint[1] = temp
 
         # Find the path in the edge list
         path = []
         for edge in self.edge_list:
-            if edge["endpoint"] == target_endpoint:
+            if edge["endpoint"] == endpoint:
                 path = edge["path"]
                 break
 
@@ -182,7 +183,7 @@ class GAZEBO_RL_ENV_NODE(Node):
         future = self.pause_client.call_async(Empty.Request())
         rclpy.spin_until_future_complete(self, future, timeout_sec=self.config["gazebo_service_timeout"])
 
-        self.get_logger().info("Reset environment.")
+        self.get_logger().info(f"Reset environment with endpoint {self.endpoints}.")
 
     def step(self):
         self.current_timestamp += 1
@@ -336,6 +337,10 @@ class GAZEBO_RL_ENV_NODE(Node):
         # Wait for all the targets to be spawned
         for future in future_list:
             rclpy.spin_until_future_complete(self, future, timeout_sec=self.config["gazebo_service_timeout"])
+            if future.result() is None:
+                self.get_logger().error("Failed to spawn the ball.")
+            elif future.result().success is False:
+                self.get_logger().error(future.result().status_message)
 
     def clear_ball_list(self):
         # Delete all the balls in the ball list
@@ -347,6 +352,10 @@ class GAZEBO_RL_ENV_NODE(Node):
         # Wait for all the balls to be deleted
         for future in future_list:
             rclpy.spin_until_future_complete(self, future, timeout_sec=self.config["gazebo_service_timeout"])
+            if future.result() is None:
+                self.get_logger().error("Failed to delete the ball.")
+            elif future.result().success is False:
+                self.get_logger().error(future.result().status_message)
 
         self.ball_list = []
 
