@@ -25,11 +25,11 @@ SAVE_INTERVAL = 50
 PROJECT = "drl-final-project"
 PROJECT_NAME = PROJECT + "-dqn-" + datetime.datetime.now().strftime("%m-%d-%H-%M")
 
-# LOAD_MODEL_PATH = None
-LOAD_MODEL_PATH = "drl-final-project-dqn-06-01-20-17/models/episode_850"
+LOAD_MODEL_PATH = None
+# LOAD_MODEL_PATH = "drl-final-project-dqn-06-01-20-17/models/episode_850"
 
 USE_LOGGER = True
-USE_WANDB = True
+USE_WANDB = False
 #############################################################################################
 
 checkpoint_dir = Path("/home/DRL_Final_Project/rl_ws/checkpoints")
@@ -148,7 +148,7 @@ def main(args=None):
         logger.Log(episode, log_data)
 
         env.get_logger().info("")
-        env.get_logger().info(f"Episode: {episode}, Step: {round(episode_step, 3)}, Reward: {round(episode_average_reward, 3)}")
+        env.get_logger().info(f"Episode: {episode}, Step: {round(episode_step, 3)}, Reward: {round(episode_average_reward, 3)}, Epsilon: {round(agent.epsilon, 3)}")
         env.get_logger().info(f"Average Reward: {round(average_reward, 3)}, Average Step: {round(average_step, 3)}, Total Step: {agent.current_step}")
         env.get_logger().info(f"Loss: {round(average_loss, 3)}, TD Error: {round(average_td_error, 3)}, TD Estimation: {round(average_td_estimation, 3)}")
         env.get_logger().info(f"Collision Rate: {round(collision_rate, 3)}, Success Rate: {round(success_rate, 3)}")
