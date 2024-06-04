@@ -101,7 +101,7 @@ class GAZEBO_RL_ENV_NODE(Node):
         self.reset()
 
     def read_graph(self):
-        file_path = os.path.join(get_package_share_directory("gazebo_rl_env"), "map", "small_house.yaml")
+        file_path = os.path.join(get_package_share_directory("gazebo_rl_env"), "map", "small_house_2.yaml")
 
         # Load the graph from the YAML file
         graph = None
