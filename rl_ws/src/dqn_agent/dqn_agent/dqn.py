@@ -52,29 +52,44 @@ class NETWORK(nn.Module):
             nn.Flatten(),  # 64x5x5 -> 1600
         )
 
-        self.advantage = nn.Sequential(
-            NoisyLinear(1600, 512),
-            nn.LeakyReLU(),
-            NoisyLinear(512, 6),
-        )
+        # self.advantage = nn.Sequential(
+        #     nn.Linear(1600, 512),
+        #     nn.LeakyReLU(),
+        #     nn.Linear(512, 6),
+        # )
 
-        self.value = nn.Sequential(
-            NoisyLinear(1600, 512),
+        # self.value = nn.Sequential(
+        #     nn.Linear(1600, 512),
+        #     nn.LeakyReLU(),
+        #     nn.Linear(512, 1),
+        # )
+
+        # Directly use simple DQN without Dueling DQN
+        self.linear = nn.Sequential(
+            nn.Linear(1600, 512),
             nn.LeakyReLU(),
-            NoisyLinear(512, 1),
+            nn.Linear(512, 6),
         )
 
     def forward(self, x):
-        # Transform the range of x from [0, 255] to [0, 1]
-        x = x / 255.0
+        # # Transform the range of x from [0, 255] to [0, 1]
+        # x = x / 255.0
 
+        # x = self.feature_map(x)
+
+        # advantage = self.advantage(x)
+        # value = self.value(x)
+
+        # # Dueling DQN -> Q(s, a) = V(s) + A(s, a)
+        # q_value = value + advantage - advantage.mean(dim=1, keepdim=True)
+
+        # return q_value
+
+        # DQN baseline
+        x = x / 255.0
         x = self.feature_map(x)
 
-        advantage = self.advantage(x)
-        value = self.value(x)
-
-        # Dueling DQN -> Q(s, a) = V(s) + A(s, a)
-        q_value = value + advantage - advantage.mean(dim=1, keepdim=True)
+        q_value = self.linear(x)
 
         return q_value
 
