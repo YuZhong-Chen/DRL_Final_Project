@@ -92,20 +92,20 @@ class RL_ENV(Node):
             twist.linear.x = 0.0
             twist.angular.z = 0.0
         elif action == 1:
-            twist.linear.x = 0.5
+            twist.linear.x = 0.328
             twist.angular.z = 0.0
         elif action == 2:
-            twist.linear.x = 0.5
-            twist.angular.z = -0.5
+            twist.linear.x = 0.328
+            twist.angular.z = -0.6561
         elif action == 3:
-            twist.linear.x = 0.5
-            twist.angular.z = 0.5
+            twist.linear.x = 0.328
+            twist.angular.z = 0.6561
         elif action == 4:
             twist.linear.x = 0.0
-            twist.angular.z = -0.5
+            twist.angular.z = -0.6561
         elif action == 5:
             twist.linear.x = 0.0
-            twist.angular.z = 0.5
+            twist.angular.z = 0.6561
 
         self.action_publisher.publish(twist)
 
