@@ -1,12 +1,14 @@
 import rclpy
 from rclpy.node import Node
 from rclpy.task import Future
+from rclpy.qos import qos_profile_sensor_data
 
 from gazebo_msgs.srv import GetEntityState, SetEntityState
 from gazebo_msgs.srv import SpawnEntity, DeleteEntity
 from std_srvs.srv import Empty
 
 from std_msgs.msg import Float32MultiArray, MultiArrayDimension
+from rosgraph_msgs.msg import Clock
 
 from ament_index_python.packages import get_package_share_directory
 
@@ -15,6 +17,8 @@ import math
 import time
 import yaml
 import numpy as np
+
+sim_clock = 0
 
 
 class RESET_SERVICE(Node):
@@ -53,17 +57,28 @@ class STEP_SERVICE(Node):
         return response
 
 
+class SIM_CLOCK_SUBSCRIBER(Node):
+    def __init__(self):
+        super().__init__("sim_clock_subscriber")
+        self.sim_clock_subscriber = self.create_subscription(Clock, "/clock", self.sim_clock_callback, qos_profile_sensor_data)
+
+    def sim_clock_callback(self, msg):
+        global sim_clock
+
+        sim_clock = msg.clock.sec
+
+
 class GAZEBO_RL_ENV_NODE(Node):
     def __init__(self):
         super().__init__("gazebo_rl_env_node")
 
         self.config = {
-            "step_time_delta": 0.5,  # seconds
-            "gazebo_service_timeout": 3.0,  # seconds
+            "step_time_delta": 1,  # seconds (Simulation time provided by Gazebo)
+            "gazebo_service_timeout": 3.0,  # seconds (Real time for waiting the Gazebo service)
             "reach_target_distance": 0.2,  # meters
-            "target_reward": 10,
+            "target_reward": 20,
             "penalty_per_step": -0.05,
-            "max_step_without_reach_target": 25,
+            "max_step_without_reach_target": 20,
         }
 
         self.current_timestamp = 0
@@ -74,7 +89,6 @@ class GAZEBO_RL_ENV_NODE(Node):
         # Create the clients for the Gazebo services
         self.pause_client = self.create_client(Empty, "/pause_physics")
         self.unpause_client = self.create_client(Empty, "/unpause_physics")
-        self.reset_world_client = self.create_client(Empty, "/reset_world")
         self.spawn_entity_client = self.create_client(SpawnEntity, "/spawn_entity")
         self.delete_entity_client = self.create_client(DeleteEntity, "/delete_entity")
         self.get_entity_state_client = self.create_client(GetEntityState, "/get_entity_state")
@@ -141,17 +155,21 @@ class GAZEBO_RL_ENV_NODE(Node):
 
         return path
 
+    def wait_one_step_time(self):
+        global sim_clock
+
+        current_sim_clock = sim_clock
+        target_sim_clock = current_sim_clock + self.config["step_time_delta"]
+
+        # Wait for the simulation clock to reach the target
+        while sim_clock < target_sim_clock:
+            time.sleep(0.001)
+
     def reset(self, target_endpoints: list[int, int] = None):
         self.current_timestamp = 0
         self.current_reward = 0.0
         self.step_without_reach_target = 0
         self.is_done = False
-
-        # Reset the gazebo environment
-        while not self.reset_world_client.wait_for_service(timeout_sec=self.config["gazebo_service_timeout"]):
-            self.get_logger().info('Gazebo service "reset_world" not available, waiting again...')
-        future = self.reset_world_client.call_async(Empty.Request())
-        rclpy.spin_until_future_complete(self, future, timeout_sec=self.config["gazebo_service_timeout"])
 
         # Generate the new path list randomly
         # NOTE: Change the endpoints to generate specific paths when testing
@@ -174,8 +192,8 @@ class GAZEBO_RL_ENV_NODE(Node):
             self.get_logger().info('Gazebo service "unpause" not available, waiting again...')
         self.unpause_client.call_async(Empty.Request())
 
-        # Wait for the world stable
-        time.sleep(self.config["step_time_delta"])
+        # Wait for one step time to stabilize the environment
+        self.wait_one_step_time()
 
         # Pause the physics to stop the simulation at the beginning
         while not self.pause_client.wait_for_service(timeout_sec=self.config["gazebo_service_timeout"]):
@@ -194,10 +212,8 @@ class GAZEBO_RL_ENV_NODE(Node):
             self.get_logger().info('Gazebo service "unpause" not available, waiting again...')
         self.unpause_client.call_async(Empty.Request())
 
-        # Wait for the Gazebo to run for a certain amount of time.
-        # Note that Gazebo will run 1000 iterations per second by default,
-        # so the real simulation timestamp will be: 0.001 * self.config["step_time_delta"] * current_timestamp
-        time.sleep(self.config["step_time_delta"])
+        # Wait for one step
+        self.wait_one_step_time()
 
         # Pause the physics to stop the simulation
         while not self.pause_client.wait_for_service(timeout_sec=self.config["gazebo_service_timeout"]):
@@ -376,7 +392,7 @@ class GAZEBO_RL_ENV_NODE(Node):
 
         # Add the max_step_without_reach_target
         msg.layout.dim.append(MultiArrayDimension(label="is_reach_max_step", size=1, stride=1))
-        msg.data.append(self.step_without_reach_target >= self.config["max_step_without_reach_target"])
+        msg.data.append(self.step_without_reach_target > self.config["max_step_without_reach_target"])
 
         # Publish the message
         self.info_publisher.publish(msg)
