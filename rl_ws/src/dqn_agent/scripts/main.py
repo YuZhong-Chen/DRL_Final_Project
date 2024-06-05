@@ -25,11 +25,11 @@ SAVE_INTERVAL = 50
 PROJECT = "drl-final-project"
 PROJECT_NAME = PROJECT + "-dqn-" + datetime.datetime.now().strftime("%m-%d-%H-%M")
 
-# LOAD_MODEL_PATH = None
-LOAD_MODEL_PATH = "drl-final-project-dqn-06-01-20-17/models/episode_850"
+LOAD_MODEL_PATH = None
+# LOAD_MODEL_PATH = "drl-final-project-dqn-06-01-23-43/models/episode_2900"
 
 USE_LOGGER = True
-USE_WANDB = True
+USE_WANDB = False
 #############################################################################################
 
 checkpoint_dir = Path("/home/DRL_Final_Project/rl_ws/checkpoints")
@@ -49,15 +49,14 @@ BLUR_OBSERVATION_ = BLUR_OBSERVATION(kernel_size=5)
 
 
 def ProcessObservation(env, observation):
-    try:
-        observation = BLUR_OBSERVATION_.forward(observation)
-        observation = RESIZE_OBSERVATION_.forward(observation)
-        observation = GRAY_SCALE_OBSERVATION_.forward(observation)
-        observation = FRAME_STACKING_.forward(observation)
-    except Exception as e:
-        env.get_logger().error(e)
-        env.get_logger().info(f"Observation {observation}")
-        observation = np.zeros((4, 320, 320), dtype=np.uint8)
+    if observation is None:
+        observation = np.zeros((360, 640, 3), dtype=np.uint8)
+        env.get_logger().error("Env observation is None in ProcessObservation.")
+    
+    observation = BLUR_OBSERVATION_.forward(observation)
+    observation = RESIZE_OBSERVATION_.forward(observation)
+    observation = GRAY_SCALE_OBSERVATION_.forward(observation)
+    observation = FRAME_STACKING_.forward(observation)
     return observation
 
 
