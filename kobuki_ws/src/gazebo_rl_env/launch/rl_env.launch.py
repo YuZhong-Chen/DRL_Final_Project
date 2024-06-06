@@ -12,6 +12,11 @@ ARGUMENTS = [
         description="Launch rviz2, by default is False",
     ),
     DeclareLaunchArgument(
+        "launch_gzclient",
+        default_value="False",
+        description="Launch gzclient, by default is False, which means headless mode",
+    ),
+    DeclareLaunchArgument(
         "spawn_kobuki",
         default_value="True",
         description="Spawn kobuki, by default is True",
@@ -39,6 +44,8 @@ def generate_launch_description():
         ),
         launch_arguments={
             "spawn_kobuki": LaunchConfiguration("spawn_kobuki"),
+            "launch_rviz": LaunchConfiguration("launch_rviz"),
+            "launch_gzclient": LaunchConfiguration("launch_gzclient"),
         }.items(),
     )
 
