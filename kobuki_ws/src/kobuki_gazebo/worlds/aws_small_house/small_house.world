@@ -14,10 +14,12 @@
     <gravity>0 0 -9.8</gravity>
     <magnetic_field>6e-06 2.3e-05 -4.2e-05</magnetic_field>
     <atmosphere type='adiabatic'/>
+    <!-- Reference -->
+    <!-- https://classic.gazebosim.org/tutorials?tut=physics_params -->
     <physics name='default_physics' default='0' type='ode'>
       <max_step_size>0.001</max_step_size>
       <real_time_factor>1</real_time_factor>
-      <real_time_update_rate>1000</real_time_update_rate>
+      <real_time_update_rate>0</real_time_update_rate>
     </physics>
     <scene>
       <ambient>0.4 0.4 0.4 1</ambient>
@@ -835,7 +837,7 @@
     </light>
     <!-- Enable Gazebo Global State -->
     <plugin name="gazebo_ros_state" filename="libgazebo_ros_state.so">
-      <update_rate>5.0</update_rate>
+      <update_rate>10.0</update_rate>
     </plugin>
   </world>
 </sdf>

@@ -1,12 +1,14 @@
 import rclpy
 from rclpy.node import Node
 from rclpy.task import Future
+from rclpy.qos import qos_profile_sensor_data
 
 from gazebo_msgs.srv import GetEntityState, SetEntityState
 from gazebo_msgs.srv import SpawnEntity, DeleteEntity
 from std_srvs.srv import Empty
 
 from std_msgs.msg import Float32MultiArray, MultiArrayDimension
+from rosgraph_msgs.msg import Clock
 
 from ament_index_python.packages import get_package_share_directory
 
@@ -15,6 +17,8 @@ import math
 import time
 import yaml
 import numpy as np
+
+sim_clock = 0
 
 
 class RESET_SERVICE(Node):
@@ -53,13 +57,24 @@ class STEP_SERVICE(Node):
         return response
 
 
+class SIM_CLOCK_SUBSCRIBER(Node):
+    def __init__(self):
+        super().__init__("sim_clock_subscriber")
+        self.sim_clock_subscriber = self.create_subscription(Clock, "/clock", self.sim_clock_callback, qos_profile_sensor_data)
+
+    def sim_clock_callback(self, msg):
+        global sim_clock
+
+        sim_clock = msg.clock.sec
+
+
 class GAZEBO_RL_ENV_NODE(Node):
     def __init__(self):
         super().__init__("gazebo_rl_env_node")
 
         self.config = {
-            "step_time_delta": 0.5,  # seconds
-            "gazebo_service_timeout": 3.0,  # seconds
+            "step_time_delta": 1,  # seconds (Simulation time provided by Gazebo)
+            "gazebo_service_timeout": 3.0,  # seconds (Real time for waiting the Gazebo service)
             "reach_target_distance": 0.2,  # meters
             "target_reward": 10,
             "penalty_per_step": -0.05,
@@ -74,18 +89,12 @@ class GAZEBO_RL_ENV_NODE(Node):
         # Create the clients for the Gazebo services
         self.pause_client = self.create_client(Empty, "/pause_physics")
         self.unpause_client = self.create_client(Empty, "/unpause_physics")
-        self.reset_world_client = self.create_client(Empty, "/reset_world")
         self.spawn_entity_client = self.create_client(SpawnEntity, "/spawn_entity")
-        self.delete_entity_client = self.create_client(DeleteEntity, "/delete_entity")
         self.get_entity_state_client = self.create_client(GetEntityState, "/get_entity_state")
         self.set_entity_state_client = self.create_client(SetEntityState, "/set_entity_state")
 
         # Create the publisher for the environment
         self.info_publisher = self.create_publisher(Float32MultiArray, "/rl_env/info", 10)
-
-        # Load the ball URDF
-        ball_urdf_path = os.path.join(get_package_share_directory("gazebo_rl_env"), "urdf", "ball.urdf")
-        self.ball_urdf = open(ball_urdf_path, "r").read()
 
         # Current path list
         self.endpoints = []
@@ -98,6 +107,7 @@ class GAZEBO_RL_ENV_NODE(Node):
 
         # Initialize
         self.read_graph()
+        self.init_ball_list(ball_list_size=12)
 
     def read_graph(self):
         file_path = os.path.join(get_package_share_directory("gazebo_rl_env"), "map", "small_house_2.yaml")
@@ -141,17 +151,21 @@ class GAZEBO_RL_ENV_NODE(Node):
 
         return path
 
+    def wait_one_step_time(self):
+        global sim_clock
+
+        current_sim_clock = sim_clock
+        target_sim_clock = current_sim_clock + self.config["step_time_delta"]
+
+        # Wait for the simulation clock to reach the target
+        while sim_clock < target_sim_clock:
+            time.sleep(0.001)
+
     def reset(self, target_endpoints: list[int, int] = None):
         self.current_timestamp = 0
         self.current_reward = 0.0
         self.step_without_reach_target = 0
         self.is_done = False
-
-        # Reset the gazebo environment
-        while not self.reset_world_client.wait_for_service(timeout_sec=self.config["gazebo_service_timeout"]):
-            self.get_logger().info('Gazebo service "reset_world" not available, waiting again...')
-        future = self.reset_world_client.call_async(Empty.Request())
-        rclpy.spin_until_future_complete(self, future, timeout_sec=self.config["gazebo_service_timeout"])
 
         # Generate the new path list randomly
         # NOTE: Change the endpoints to generate specific paths when testing
@@ -163,10 +177,13 @@ class GAZEBO_RL_ENV_NODE(Node):
         future = self.set_entity_state("kobuki", kobuki_start_point[0], kobuki_start_point[1], 0.0, np.random.uniform(0, 2 * np.pi))
         rclpy.spin_until_future_complete(self, future, timeout_sec=self.config["gazebo_service_timeout"])
 
-        # Spawn the other endpoint
+        # Move the endpoint ball to the endpoint
         endpoint_index = self.endpoints[0] if kobuki_start_point_index == self.endpoints[1] else self.endpoints[1]
         endpoint = self.node_list[endpoint_index]["position"]
-        future = self.spawn_ball(endpoint[0], endpoint[1], 0.2, "ball_endpoint")
+        self.ball_list[-1].x = endpoint[0]
+        self.ball_list[-1].y = endpoint[1]
+        self.ball_list[-1].z = 0.2
+        future = self.set_entity_state(self.ball_list[-1].name, self.ball_list[-1].x, self.ball_list[-1].y, self.ball_list[-1].z)
         rclpy.spin_until_future_complete(self, future, timeout_sec=self.config["gazebo_service_timeout"])
 
         # Unpause the physics to allow the simulation to run
@@ -174,8 +191,8 @@ class GAZEBO_RL_ENV_NODE(Node):
             self.get_logger().info('Gazebo service "unpause" not available, waiting again...')
         self.unpause_client.call_async(Empty.Request())
 
-        # Wait for the world stable
-        time.sleep(self.config["step_time_delta"])
+        # Wait for one step time to stabilize the environment
+        self.wait_one_step_time()
 
         # Pause the physics to stop the simulation at the beginning
         while not self.pause_client.wait_for_service(timeout_sec=self.config["gazebo_service_timeout"]):
@@ -187,17 +204,14 @@ class GAZEBO_RL_ENV_NODE(Node):
 
     def step(self):
         self.current_timestamp += 1
-        # self.get_logger().info(f"Current timestamp: {self.current_timestamp}")
 
         # Unpause the physics to allow the simulation to run
         while not self.unpause_client.wait_for_service(timeout_sec=self.config["gazebo_service_timeout"]):
             self.get_logger().info('Gazebo service "unpause" not available, waiting again...')
         self.unpause_client.call_async(Empty.Request())
 
-        # Wait for the Gazebo to run for a certain amount of time.
-        # Note that Gazebo will run 1000 iterations per second by default,
-        # so the real simulation timestamp will be: 0.001 * self.config["step_time_delta"] * current_timestamp
-        time.sleep(self.config["step_time_delta"])
+        # Wait for one step
+        self.wait_one_step_time()
 
         # Pause the physics to stop the simulation
         while not self.pause_client.wait_for_service(timeout_sec=self.config["gazebo_service_timeout"]):
@@ -211,18 +225,23 @@ class GAZEBO_RL_ENV_NODE(Node):
         is_reach_target = False
         state = self.get_kobuki_state()
         for i in range(len(self.ball_list)):
-            if self.ball_list[i] is not None:
+            # Check whether the ball is still in the environment (above the ground)
+            if self.ball_list[i].z > 0.0:
                 distance = self.ball_list[i].get_distance(state)
                 if distance < self.config["reach_target_distance"]:
+                    is_reach_target = True
+
+                    # Move the ball under the ground
+                    self.ball_list[i].z = -2.0
+                    future = self.set_entity_state(self.ball_list[i].name, self.ball_list[i].x, self.ball_list[i].y, self.ball_list[i].z)
+                    rclpy.spin_until_future_complete(self, future, timeout_sec=self.config["gazebo_service_timeout"])
+
                     # If the Kobuki reaches the endpoint, set the done signal to True
                     if self.ball_list[i].name == "ball_endpoint":
                         self.is_done = True
 
-                    # self.get_logger().info(f"Kobuki reaches target {self.ball_list[i].name} at timestamp {self.current_timestamp}")
-                    self.delete_ball(self.ball_list[i].name)
+                    # Calculate the reward
                     self.current_reward = self.config["target_reward"]
-                    self.ball_list[i] = None
-                    is_reach_target = True
 
         # If the Kobuki does not reach the target, increase the step_without_reach_target
         if not is_reach_target:
@@ -233,47 +252,40 @@ class GAZEBO_RL_ENV_NODE(Node):
         # Publish the information
         self.publish_info()
 
-    def spawn_ball(self, x: float, y: float, z: float, name: str) -> Future:
-        self.spawn_ball_request = SpawnEntity.Request()
-        self.spawn_ball_request.name = name
-        self.spawn_ball_request.xml = self.ball_urdf
-        self.spawn_ball_request.initial_pose.position.x = x
-        self.spawn_ball_request.initial_pose.position.y = y
-        self.spawn_ball_request.initial_pose.position.z = z
+    def init_ball_list(self, ball_list_size: int):
+        self.get_logger().info("Initialize the ball list.")
 
-        # Append the ball to the ball list
-        self.ball_list.append(TARGET(x, y, z, name))
+        # Load the ball URDF
+        ball_urdf_path = os.path.join(get_package_share_directory("gazebo_rl_env"), "urdf", "ball.urdf")
+        ball_urdf = open(ball_urdf_path, "r").read()
 
-        # Spawn the ball
-        while not self.spawn_entity_client.wait_for_service(timeout_sec=self.config["gazebo_service_timeout"]):
-            self.get_logger().info('Gazebo service "spawn_entity" not available, waiting again...')
-        future = self.spawn_entity_client.call_async(self.spawn_ball_request)
-        return future
+        for i in range(ball_list_size):
+            # Set the ball name. (The last ball is the endpoint ball)
+            if i == ball_list_size - 1:
+                ball_name = "ball_endpoint"
+            else:
+                ball_name = "ball_" + str(i)
 
-    def delete_ball(self, name: str) -> Future:
-        self.delete_ball_request = DeleteEntity.Request()
-        self.delete_ball_request.name = name
+            # Construct the spawn ball request
+            self.spawn_ball_request = SpawnEntity.Request()
+            self.spawn_ball_request.name = ball_name
+            self.spawn_ball_request.xml = ball_urdf
+            self.spawn_ball_request.initial_pose.position.x = 0.0
+            self.spawn_ball_request.initial_pose.position.y = 0.0
+            self.spawn_ball_request.initial_pose.position.z = -2.0
 
-        # Delete the ball
-        while not self.delete_entity_client.wait_for_service(timeout_sec=self.config["gazebo_service_timeout"]):
-            self.get_logger().info('Gazebo service "delete_entity" not available, waiting again...')
-        future = self.delete_entity_client.call_async(self.delete_ball_request)
-        return future
+            # Append the ball to the ball list
+            self.ball_list.append(BALL(0.0, 0.0, -2.0, ball_name))
 
-    def spawn_kobuki(self, x: float, y: float, z: float, yaw: float):
-        # Use system call to spawn the Kobuki robot
-        os.system(f"ros2 run gazebo_ros spawn_entity.py -entity kobuki -topic /robot_description -x {x} -y {y} -z {z} -Y {yaw}")
+            # Spawn the ball
+            while not self.spawn_entity_client.wait_for_service(timeout_sec=self.config["gazebo_service_timeout"]):
+                self.get_logger().info('Gazebo service "spawn_entity" not available, waiting again...')
+            future = self.spawn_entity_client.call_async(self.spawn_ball_request)
+            rclpy.spin_until_future_complete(self, future)
 
-    def delete_kobuki(self):
-        self.delete_kobuki_request = DeleteEntity.Request()
-        self.delete_kobuki_request.name = "kobuki"
+        self.get_logger().info("Ball list is initialized.")
 
-        # Delete the Kobuki
-        while not self.delete_entity_client.wait_for_service(timeout_sec=self.config["gazebo_service_timeout"]):
-            self.get_logger().info('Gazebo service "delete_entity" not available, waiting again...')
-        self.delete_entity_client.call_async(self.delete_kobuki_request)
-
-    def set_entity_state(self, name: str, x: float, y: float, z: float, yaw: float) -> Future:
+    def set_entity_state(self, name: str, x: float, y: float, z: float, yaw: float = 0.0) -> Future:
         self.set_entity_state_request = SetEntityState.Request()
         self.set_entity_state_request.state.name = name
         self.set_entity_state_request.state.pose.position.x = x
@@ -322,42 +334,29 @@ class GAZEBO_RL_ENV_NODE(Node):
             endpoints = self.edge_list[random_index]["endpoint"]
         self.endpoints = endpoints
 
-        # Clear the ball list if it is not empty
-        if len(self.ball_list) > 0:
-            self.clear_ball_list()
-
         # Get the path from the graph
         self.path_list = self.get_path(self.endpoints)
 
-        # Spawn the targets
+        # Move the ball to the path
         future_list = []
         for i in range(len(self.path_list)):
-            future_list.append(self.spawn_ball(self.path_list[i][0], self.path_list[i][1], 0.2, "ball_" + str(i)))
+            self.ball_list[i].x = self.path_list[i][0]
+            self.ball_list[i].y = self.path_list[i][1]
+            self.ball_list[i].z = 0.2
+            future_list.append(self.set_entity_state(self.ball_list[i].name, self.ball_list[i].x, self.ball_list[i].y, self.ball_list[i].z))
 
-        # Wait for all the targets to be spawned
+        # Move the remaining balls under the ground
+        for i in range(len(self.path_list), len(self.ball_list) - 1):
+            self.ball_list[i].z = -2.0
+            future_list.append(self.set_entity_state(self.ball_list[i].name, self.ball_list[i].x, self.ball_list[i].y, self.ball_list[i].z))
+
+        # Wait for all the ball to be moved
         for future in future_list:
             rclpy.spin_until_future_complete(self, future, timeout_sec=self.config["gazebo_service_timeout"])
             if future.result() is None:
-                self.get_logger().error("Failed to spawn the ball.")
+                self.get_logger().error("Failed to move the ball.")
             elif future.result().success is False:
                 self.get_logger().error(future.result().status_message)
-
-    def clear_ball_list(self):
-        # Delete all the balls in the ball list
-        future_list = []
-        for i in range(len(self.ball_list)):
-            if self.ball_list[i] is not None:
-                future_list.append(self.delete_ball(self.ball_list[i].name))
-
-        # Wait for all the balls to be deleted
-        for future in future_list:
-            rclpy.spin_until_future_complete(self, future, timeout_sec=self.config["gazebo_service_timeout"])
-            if future.result() is None:
-                self.get_logger().error("Failed to delete the ball.")
-            elif future.result().success is False:
-                self.get_logger().error(future.result().status_message)
-
-        self.ball_list = []
 
     def publish_info(self):
         msg = Float32MultiArray()
@@ -376,13 +375,13 @@ class GAZEBO_RL_ENV_NODE(Node):
 
         # Add the max_step_without_reach_target
         msg.layout.dim.append(MultiArrayDimension(label="is_reach_max_step", size=1, stride=1))
-        msg.data.append(self.step_without_reach_target >= self.config["max_step_without_reach_target"])
+        msg.data.append(self.step_without_reach_target > self.config["max_step_without_reach_target"])
 
         # Publish the message
         self.info_publisher.publish(msg)
 
 
-class TARGET:
+class BALL:
     def __init__(self, x: float, y: float, z: float, name: str):
         self.x = x
         self.y = y

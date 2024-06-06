@@ -17,8 +17,8 @@ class PRIORITIZED_EXPERIENCE_REPLAY:
 
         # Initialize the replay buffer
         # Note that the state is stored as int8 to save memory.
-        self.state = torch.zeros((capacity, *state_shape), dtype=torch.int8)
-        self.action = torch.zeros((capacity, 1), dtype=torch.int8).to(self.device)
+        self.state = torch.zeros((capacity, *state_shape), dtype=torch.int8).to(self.device)
+        self.action = torch.zeros((capacity, 1), dtype=torch.int64).to(self.device)
         self.reward = torch.zeros((capacity, 1), dtype=torch.int8).to(self.device)
         self.done = torch.zeros((capacity, 1), dtype=torch.bool).to(self.device)
         self.next_state = torch.zeros((capacity, *state_shape), dtype=torch.int8)

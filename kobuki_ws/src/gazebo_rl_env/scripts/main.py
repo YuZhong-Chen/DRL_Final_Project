@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import rclpy
-from gazebo_rl_env.gazebo_rl_env import GAZEBO_RL_ENV_NODE, RESET_SERVICE, STEP_SERVICE
+from gazebo_rl_env.gazebo_rl_env import GAZEBO_RL_ENV_NODE, RESET_SERVICE, STEP_SERVICE, SIM_CLOCK_SUBSCRIBER
 
 import time
 import threading
@@ -12,6 +12,7 @@ def main(args=None):
 
     reset_service_node = RESET_SERVICE()
     step_service_node = STEP_SERVICE()
+    sim_clock_subscriber_node = SIM_CLOCK_SUBSCRIBER()
 
     # Create a MultiThreadedExecutor
     # This is necessary for running the services in parallel,
@@ -22,6 +23,7 @@ def main(args=None):
     executor = rclpy.executors.MultiThreadedExecutor()
     executor.add_node(reset_service_node)
     executor.add_node(step_service_node)
+    executor.add_node(sim_clock_subscriber_node)
     executor_thread = threading.Thread(target=executor.spin)
     executor_thread.start()
 

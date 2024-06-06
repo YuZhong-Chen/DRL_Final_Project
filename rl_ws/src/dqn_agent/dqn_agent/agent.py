@@ -18,7 +18,7 @@ class AGENT:
             "learning_rate": 0.0003,
             "gamma": 0.85,
             "replay_buffer_size": 10000,
-            "warmup_steps": 1000,
+            "warmup_steps": 5000,
             "tau": 0.001,
             "optimizer": "AdamW",
             "loss": "MSE",
@@ -101,11 +101,7 @@ class AGENT:
         # Sample batch data from replay buffer.
         state_batch, action_batch, reward_batch, done_batch, next_state_batch = self.replay_buffer.Sample(self.config["batch_size"])
 
-        # Transfer the data type of action (int8) to (int64) for gather() function.
-        action_batch = action_batch.to(torch.int64)
-
         # Move the data to the device.
-        state_batch = state_batch.to(self.device)
         next_state_batch = next_state_batch.to(self.device)
 
         # Calculate TD target.

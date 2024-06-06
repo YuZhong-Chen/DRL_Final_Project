@@ -92,35 +92,46 @@ class RL_ENV(Node):
             twist.linear.x = 0.0
             twist.angular.z = 0.0
         elif action == 1:
-            twist.linear.x = 0.5
+            twist.linear.x = 0.239
             twist.angular.z = 0.0
         elif action == 2:
-            twist.linear.x = 0.5
-            twist.angular.z = -0.5
+            twist.linear.x = 0.239
+            twist.angular.z = -0.205
         elif action == 3:
-            twist.linear.x = 0.5
-            twist.angular.z = 0.5
+            twist.linear.x = 0.239
+            twist.angular.z = 0.205
         elif action == 4:
             twist.linear.x = 0.0
-            twist.angular.z = -0.5
+            twist.angular.z = -0.205
         elif action == 5:
             twist.linear.x = 0.0
-            twist.angular.z = 0.5
+            twist.angular.z = 0.205
 
         self.action_publisher.publish(twist)
 
     def reset(self):
+        # Stop the car
+        self.publish_action(0)
+
         # Call the reset service
         while not self.reset_service.wait_for_service(timeout_sec=self.config["service_timeout"]):
             self.get_logger().info('Env service "reset" not available, waiting again...')
-
         future = self.reset_service.call_async(Empty.Request())
         rclpy.spin_until_future_complete(self, future)
 
         # Call the step service for the first time
         observation = None
         while observation is None:
-            observation, _, _, _ = self.step(0)
+            observation, _, done, info = self.step(0)
+            if done or info["is_max_step"]:
+                break
+
+        # Check if the observation is received
+        if observation is None:
+            self.get_logger().error('Env service "reset" failed to receive data.')
+            self.get_logger().error("Recalling the reset function...")
+            observation = self.reset()
+
         return observation
 
     def step(self, action: int):
@@ -140,7 +151,6 @@ class RL_ENV(Node):
         # Call the step service
         while not self.step_service.wait_for_service(timeout_sec=self.config["service_timeout"]):
             self.get_logger().info('Env service "step" not available, waiting again...')
-
         future = self.step_service.call_async(Empty.Request())
         rclpy.spin_until_future_complete(self, future)
 
@@ -159,16 +169,21 @@ class RL_ENV(Node):
         if is_data_updated is False:
             self.data_timeout_count += 1
             self.get_logger().error('Env service "step" failed to receive data, use the old data.')
+
+            # Check which data is not received
             is_observation = "Received" if observation is not None else "None"
             is_reward = "Received" if reward is not None else "None"
             is_collision = "Received" if info["is_collision"] is not None else "None"
-            self.get_logger().error(f"Observation {is_observation}, Reward {is_reward}, is_collision {is_collision}")
+            self.get_logger().error(f"Observation: {is_observation}, Reward: {is_reward}, Info: {is_collision}")
             self.get_logger().error(f"Timeout: {self.wait_for_data_update_timeout} seconds.")
+
             return old_observation, old_reward, done, old_info
         else:
+            # If the data is received, decrease the waiting time for the next time.
             self.wait_for_data_update_timeout -= timeout_period
             self.wait_for_data_update_timeout = max(self.wait_for_data_update_timeout, 1.0)
 
+        # Dynamic increase the waiting time if the data is not updated
         if self.data_timeout_count > 5:
             self.data_timeout_count = 0
             self.wait_for_data_update_timeout += 1.0
