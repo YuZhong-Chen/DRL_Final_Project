@@ -3,36 +3,6 @@ import math
 import torch.nn as nn
 
 
-class NoisyLinear(nn.Linear):
-    def __init__(self, in_features, out_features):
-        super(NoisyLinear, self).__init__(in_features, out_features)
-
-        self.sigma = 0.5
-
-        self.weight_sigma = nn.Parameter(torch.Tensor(out_features, in_features).fill_(self.sigma / math.sqrt(self.in_features)))
-        self.register_buffer("weight_epsilon", torch.zeros(out_features, in_features))
-
-        self.bias_sigma = nn.Parameter(torch.Tensor(out_features).fill_(self.sigma / math.sqrt(self.in_features)))
-        self.register_buffer("bias_epsilon", torch.zeros(out_features))
-
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        self.reset_parameters()
-
-    def reset_parameters(self):
-        mu_range = 1.0 / math.sqrt(self.in_features)
-        self.weight.data.uniform_(-mu_range, mu_range)
-        self.bias.data.uniform_(-mu_range, mu_range)
-
-    def sample_noise(self):
-        self.weight_epsilon = torch.randn(self.weight_epsilon.size(), device=self.device)
-        self.bias_epsilon = torch.randn(self.bias_epsilon.size(), device=self.device)
-
-    def forward(self, x):
-        self.sample_noise()
-        return nn.functional.linear(x, self.weight + self.weight_sigma * self.weight_epsilon, self.bias + self.bias_sigma * self.bias_epsilon)
-
-
 class NETWORK(nn.Module):
     def __init__(self):
         super(NETWORK, self).__init__()
@@ -52,18 +22,6 @@ class NETWORK(nn.Module):
             nn.Flatten(),  # 64x5x5 -> 1600
         )
 
-        # self.advantage = nn.Sequential(
-        #     nn.Linear(1600, 512),
-        #     nn.LeakyReLU(),
-        #     nn.Linear(512, 6),
-        # )
-
-        # self.value = nn.Sequential(
-        #     nn.Linear(1600, 512),
-        #     nn.LeakyReLU(),
-        #     nn.Linear(512, 1),
-        # )
-
         # Directly use simple DQN without Dueling DQN
         self.linear = nn.Sequential(
             nn.Linear(1600, 512),
@@ -72,24 +30,12 @@ class NETWORK(nn.Module):
         )
 
     def forward(self, x):
-        # # Transform the range of x from [0, 255] to [0, 1]
-        # x = x / 255.0
-
-        # x = self.feature_map(x)
-
-        # advantage = self.advantage(x)
-        # value = self.value(x)
-
-        # # Dueling DQN -> Q(s, a) = V(s) + A(s, a)
-        # q_value = value + advantage - advantage.mean(dim=1, keepdim=True)
-
-        # return q_value
-
-        # DQN baseline
+        # Transform the range of x from [0, 255] to [0, 1]
         x = x / 255.0
-        x = self.feature_map(x)
 
-        q_value = self.linear(x)
+        # DQN network
+        feature_map = self.feature_map(x)
+        q_value = self.linear(feature_map)
 
         return q_value
 

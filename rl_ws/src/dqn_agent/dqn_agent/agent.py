@@ -34,7 +34,6 @@ class AGENT:
         self.loss = None
         self.action_space_len = 6
 
-        self.last_action = None
         self.current_step = 0
         self.current_episode = 0
 
@@ -74,16 +73,10 @@ class AGENT:
         self.epsilon = self.epsilon_start
 
     def UpdateEpsilon(self) -> None:
-
         # Update the epsilon using the exponential decay function.
         self.epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * math.exp(-1.0 * self.current_episode / self.epsilon_decay)
-        
 
     def Act(self, state):
-        # with torch.no_grad():
-        #     state = torch.tensor(np.array(state), dtype=torch.int8).unsqueeze(0).to(self.device)
-        #     action = torch.argmax(self.network.learning_network(state)).item()
-
         # With epsilon-greedy policy
         self.UpdateEpsilon()
 
