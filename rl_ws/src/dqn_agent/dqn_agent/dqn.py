@@ -22,27 +22,38 @@ class NETWORK(nn.Module):
             nn.Flatten(),  # 64x5x5 -> 1600
         )
 
-        # Directly use simple DQN without Dueling DQN
         if use_dropout:
-            self.linear = nn.Sequential(
+            self.advantage = nn.Sequential(
                 nn.Dropout(p=0.2),
                 nn.Linear(1600, 512),
                 nn.LeakyReLU(),
                 nn.Dropout(p=0.2),
                 nn.Linear(512, 6),
             )
+            self.value = nn.Sequential(
+                nn.Dropout(p=0.2),
+                nn.Linear(1600, 512),
+                nn.LeakyReLU(),
+                nn.Dropout(p=0.2),
+                nn.Linear(512, 1),
+            )
         else:
-            self.linear = nn.Sequential(
+            self.advantage = nn.Sequential(
                 nn.Linear(1600, 512),
                 nn.LeakyReLU(),
                 nn.Linear(512, 6),
+            )
+            self.value = nn.Sequential(
+                nn.Linear(1600, 512),
+                nn.LeakyReLU(),
+                nn.Linear(512, 1),
             )
 
         # Initialize network's parameters
         self.InitNetwork()
 
     def InitNetwork(self):
-        for layer in (self.feature_map, self.linear):
+        for layer in (self.feature_map, self.advantage, self.value):
             if isinstance(layer, nn.Conv2d) or isinstance(layer, nn.Linear):
                 nn.init.xavier_uniform_(layer.weight, gain=nn.init.calculate_gain("leaky_relu"))
                 nn.init.constant_(layer.bias, 0)
@@ -50,10 +61,14 @@ class NETWORK(nn.Module):
     def forward(self, x):
         # Transform the range of x from [0, 255] to [0, 1]
         x = x / 255.0
-
-        # DQN network
+        
+        # Feature map
         feature_map = self.feature_map(x)
-        q_value = self.linear(feature_map)
+        
+        # Dueling DQN -> Q(s, a) = V(s) + A(s, a)
+        advantage = self.advantage(feature_map)
+        value = self.value(feature_map)
+        q_value = value + advantage - advantage.mean(dim=1, keepdim=True)
 
         return q_value
 
