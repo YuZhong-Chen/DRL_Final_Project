@@ -92,24 +92,27 @@ class RL_ENV(Node):
             twist.linear.x = 0.0
             twist.angular.z = 0.0
         elif action == 1:
-            twist.linear.x = 0.328
+            twist.linear.x = 0.239
             twist.angular.z = 0.0
         elif action == 2:
-            twist.linear.x = 0.328
-            twist.angular.z = -0.6561
+            twist.linear.x = 0.239
+            twist.angular.z = -0.205
         elif action == 3:
-            twist.linear.x = 0.328
-            twist.angular.z = 0.6561
+            twist.linear.x = 0.239
+            twist.angular.z = 0.205
         elif action == 4:
             twist.linear.x = 0.0
-            twist.angular.z = -0.6561
+            twist.angular.z = -0.205
         elif action == 5:
             twist.linear.x = 0.0
-            twist.angular.z = 0.6561
+            twist.angular.z = 0.205
 
         self.action_publisher.publish(twist)
 
     def reset(self):
+        # Stop the car
+        self.publish_action(0)
+
         # Call the reset service
         while not self.reset_service.wait_for_service(timeout_sec=self.config["service_timeout"]):
             self.get_logger().info('Env service "reset" not available, waiting again...')
