@@ -4,7 +4,7 @@ import torch.nn as nn
 
 
 class NETWORK(nn.Module):
-    def __init__(self):
+    def __init__(self, use_dropout=False):
         super(NETWORK, self).__init__()
 
         # State shape: 4x320x320 (4 frames of 320x320 pixels)
@@ -23,11 +23,20 @@ class NETWORK(nn.Module):
         )
 
         # Directly use simple DQN without Dueling DQN
-        self.linear = nn.Sequential(
-            nn.Linear(1600, 512),
-            nn.LeakyReLU(),
-            nn.Linear(512, 6),
-        )
+        if use_dropout:
+            self.linear = nn.Sequential(
+                nn.Dropout(p=0.2),
+                nn.Linear(1600, 512),
+                nn.LeakyReLU(),
+                nn.Dropout(p=0.2),
+                nn.Linear(512, 6),
+            )
+        else:
+            self.linear = nn.Sequential(
+                nn.Linear(1600, 512),
+                nn.LeakyReLU(),
+                nn.Linear(512, 6),
+            )
 
         # Initialize network's parameters
         self.InitNetwork()
