@@ -29,6 +29,15 @@ class NETWORK(nn.Module):
             nn.Linear(512, 6),
         )
 
+        # Initialize network's parameters
+        self.InitNetwork()
+
+    def InitNetwork(self):
+        for layer in (self.feature_map, self.linear):
+            if isinstance(layer, nn.Conv2d) or isinstance(layer, nn.Linear):
+                nn.init.xavier_uniform_(layer.weight, gain=nn.init.calculate_gain("leaky_relu"))
+                nn.init.constant_(layer.bias, 0)
+
     def forward(self, x):
         # Transform the range of x from [0, 255] to [0, 1]
         x = x / 255.0
