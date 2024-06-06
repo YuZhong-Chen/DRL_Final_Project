@@ -23,7 +23,7 @@ class AGENT:
             "optimizer": "AdamW",
             "loss": "MSE",
             "max_grad_norm": 10.0,
-            "epsilon_start": 0.95,
+            "epsilon_start": 1.0,
             "epsilon_end": 0.01,
             "epsilon_decay": 3000,
         }
