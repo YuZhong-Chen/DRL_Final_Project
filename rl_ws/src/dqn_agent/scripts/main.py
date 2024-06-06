@@ -20,7 +20,7 @@ from dqn_agent.logger import LOGGER
 
 #############################################################################################
 EPISODES = 10000
-SAVE_INTERVAL = 50
+SAVE_INTERVAL = 100
 
 PROJECT = "drl-final-project"
 PROJECT_NAME = PROJECT + "-dqn-" + datetime.datetime.now().strftime("%m-%d-%H-%M")
