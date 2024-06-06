@@ -76,9 +76,9 @@ class GAZEBO_RL_ENV_NODE(Node):
             "step_time_delta": 1,  # seconds (Simulation time provided by Gazebo)
             "gazebo_service_timeout": 3.0,  # seconds (Real time for waiting the Gazebo service)
             "reach_target_distance": 0.2,  # meters
-            "target_reward": 20,
+            "target_reward": 10,
             "penalty_per_step": -0.05,
-            "max_step_without_reach_target": 20,
+            "max_step_without_reach_target": 25,
         }
 
         self.current_timestamp = 0
