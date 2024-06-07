@@ -31,6 +31,10 @@ class PRIORITIZED_EXPERIENCE_REPLAY:
         self.sample_index = torch.multinomial(self.priority[: self.current_size], batch_size, replacement=True)
         return self.state[self.sample_index], self.action[self.sample_index], self.reward[self.sample_index], self.done[self.sample_index], self.next_state[self.sample_index]
 
+    def GetStateBatch(self, batch_size=32):
+        sample_index = torch.randint(0, self.current_size, (batch_size,))
+        return self.state[sample_index]
+
     def Add(self, state: np.ndarray, action: int, reward: int, done: bool, next_state: np.ndarray):
         self.state[self.replace_index] = torch.tensor(np.array(state), dtype=torch.int8)
         self.action[self.replace_index] = action

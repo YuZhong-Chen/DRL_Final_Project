@@ -31,6 +31,7 @@ class LOGGER:
             return
 
         for key, value in log_data.items():
-            self.writer.add_scalar(key, value, episode)
+            if value is not None:
+                self.writer.add_scalar(key, value, episode)
 
         self.writer.flush()

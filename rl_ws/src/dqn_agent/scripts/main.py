@@ -29,7 +29,7 @@ LOAD_MODEL_PATH = None
 # LOAD_MODEL_PATH = "drl-final-project-dqn-06-01-20-17/models/episode_850"
 
 USE_LOGGER = True
-USE_WANDB = False
+USE_WANDB = True
 #############################################################################################
 
 checkpoint_dir = Path("/home/DRL_Final_Project/rl_ws/checkpoints")
@@ -52,7 +52,7 @@ def ProcessObservation(env, observation):
     if observation is None:
         observation = np.zeros((360, 640, 3), dtype=np.uint8)
         env.get_logger().error("Env observation is None in ProcessObservation.")
-    
+
     observation = BLUR_OBSERVATION_.forward(observation)
     observation = RESIZE_OBSERVATION_.forward(observation)
     observation = GRAY_SCALE_OBSERVATION_.forward(observation)
@@ -89,6 +89,7 @@ def main(args=None):
 
         episode_step = 0
         episode_reward = 0
+        episode_dormant_fraction = None
         loss_list = []
         td_error_list = []
         td_estimation_list = []
@@ -107,12 +108,15 @@ def main(args=None):
 
             agent.AddToReplayBuffer(observation, action, reward, done, next_observation)
 
-            loss, td_error, td_estimation = agent.Train()
+            loss, td_error, td_estimation, dormant_fraction = agent.Train()
 
             episode_reward += reward
             loss_list.append(loss)
             td_error_list.append(td_error)
             td_estimation_list.append(td_estimation)
+
+            if dormant_fraction is not None:
+                episode_dormant_fraction = dormant_fraction
 
             observation = next_observation
 
@@ -143,13 +147,19 @@ def main(args=None):
         log_data["Step/Total"] = agent.current_step
         log_data["Rate/Collision"] = collision_rate
         log_data["Rate/Success"] = success_rate
+        log_data["Redo/Dormant Fraction"] = episode_dormant_fraction
         logger.Log(episode, log_data)
 
         env.get_logger().info("")
         env.get_logger().info(f"Episode: {episode}, Step: {round(episode_step, 3)}, Reward: {round(episode_average_reward, 3)}, Epsilon: {round(agent.epsilon, 3)}")
         env.get_logger().info(f"Average Reward: {round(average_reward, 3)}, Average Step: {round(average_step, 3)}, Total Step: {agent.current_step}")
         env.get_logger().info(f"Loss: {round(average_loss, 3)}, TD Error: {round(average_td_error, 3)}, TD Estimation: {round(average_td_estimation, 3)}")
-        env.get_logger().info(f"Collision Rate: {round(collision_rate, 3)}, Success Rate: {round(success_rate, 3)}")
+        env.get_logger().info(f"Collision Rate: {round(collision_rate * 100, 3)} %, Success Rate: {round(success_rate * 100, 3)} %")
+
+        if episode_dormant_fraction is not None:
+            env.get_logger().info("")
+            env.get_logger().info(f"Re-initializing dormant neurons. Dormant Fraction: {round(episode_dormant_fraction, 3)} %")
+            env.get_logger().info("")
 
         if episode % SAVE_INTERVAL == 0:
             env.get_logger().info("Save model.")

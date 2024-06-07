@@ -7,6 +7,7 @@ import numpy as np
 
 from dqn_agent.dqn import DQN
 from dqn_agent.per import PRIORITIZED_EXPERIENCE_REPLAY
+from dqn_agent.redo import run_redo
 
 
 class AGENT:
@@ -20,12 +21,15 @@ class AGENT:
             "replay_buffer_size": 10000,
             "warmup_steps": 5000,
             "tau": 0.001,
-            "optimizer": "AdamW",
+            "optimizer": "Adam",
             "loss": "MSE",
             "max_grad_norm": 10.0,
             "epsilon_start": 1.0,
             "epsilon_end": 0.01,
-            "epsilon_decay": 3000,
+            "epsilon_decay": 2000,
+            "enable_redo": True,
+            "redo_steps": 1000,
+            "redo_tau": 0.1,
         }
 
         self.network = None
@@ -96,7 +100,7 @@ class AGENT:
         self.current_step += 1
 
         if self.replay_buffer.current_size < self.config["warmup_steps"]:
-            return 0, 0, 0
+            return 0, 0, 0, None
 
         # Sample batch data from replay buffer.
         state_batch, action_batch, reward_batch, done_batch, next_state_batch = self.replay_buffer.Sample(self.config["batch_size"])
@@ -131,7 +135,16 @@ class AGENT:
             td_error = torch.abs(td_target - td_estimation).cpu()
             self.replay_buffer.UpdatePriority(td_error)
 
-        return loss.item(), td_error.mean().item(), td_estimation.mean().item()
+        # Apply the REDO algorithm
+        dormant_fraction = None
+        if self.current_step % self.config["redo_steps"] == 0:
+            result = run_redo(state_batch=state_batch, model=self.network.learning_network, optimizer=self.optimizer, tau=self.config["redo_tau"], re_initialize=self.config["enable_redo"], use_lecun_init=False)
+
+            self.network.learning_network = result["model"]
+            self.optimizer = result["optimizer"]
+            dormant_fraction = result["dormant_fraction"].item()
+
+        return loss.item(), td_error.mean().item(), td_estimation.mean().item(), dormant_fraction
 
     def SaveModel(self):
         save_dir = self.model_dir / f"episode_{self.current_episode}"
