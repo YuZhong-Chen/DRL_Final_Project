@@ -242,7 +242,7 @@ def run_redo(
         # Calculate the masks actually used for resetting
         masks = _get_redo_masks(activations, tau)
         dormant_count = sum([torch.sum(mask) for mask in masks])
-        dormant_fraction = (dormant_count / sum([torch.numel(mask) for mask in masks])) * 100
+        dormant_fraction = (dormant_count / sum([torch.numel(mask) for mask in masks]))
 
         # Re-initialize the dormant neurons and reset the Adam moments
         if re_initialize:
