@@ -158,7 +158,7 @@ def main(args=None):
 
         if episode_dormant_fraction is not None:
             env.get_logger().info("")
-            env.get_logger().info(f"Re-initializing dormant neurons. Dormant Fraction: {round(episode_dormant_fraction, 3)} %")
+            env.get_logger().info(f"Re-initializing dormant neurons. Dormant Fraction: {round(episode_dormant_fraction * 100, 3)} %")
             env.get_logger().info("")
 
         if episode % SAVE_INTERVAL == 0:
