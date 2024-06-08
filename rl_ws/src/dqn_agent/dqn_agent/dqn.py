@@ -55,9 +55,9 @@ class NETWORK(nn.Module):
 
         # Dueling DQN -> Q(s, a) = V(s) + A(s, a)
         advantage = nn.functional.leaky_relu(self.advantage1(feature_map))
-        advantage = nn.functional.leaky_relu(self.advantage2(advantage))
+        advantage = self.advantage2(advantage)
         value = nn.functional.leaky_relu(self.value1(feature_map))
-        value = nn.functional.leaky_relu(self.value2(value))
+        value = self.value2(value)
         q_value = value + advantage - advantage.mean(dim=1, keepdim=True)
 
         return q_value
