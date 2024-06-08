@@ -28,7 +28,7 @@ class AGENT:
             "epsilon_end": 0.01,
             "epsilon_decay": 2000,
             "enable_redo": True,
-            "redo_steps": 1000,
+            "redo_steps": 2000,
             "redo_tau": 0.1,
         }
 
@@ -138,9 +138,9 @@ class AGENT:
         # Apply the REDO algorithm
         dormant_fraction = None
         if self.current_step % self.config["redo_steps"] == 0:
-            result = run_redo(state_batch=state_batch, model=self.network.learning_network, optimizer=self.optimizer, tau=self.config["redo_tau"], re_initialize=self.config["enable_redo"], use_lecun_init=False)
+            result = run_redo(state_batch=state_batch, model=self.network.target_network, optimizer=self.optimizer, tau=self.config["redo_tau"], re_initialize=self.config["enable_redo"], use_lecun_init=False)
 
-            self.network.learning_network = result["model"]
+            self.network.target_network = result["model"]
             self.optimizer = result["optimizer"]
             dormant_fraction = result["dormant_fraction"].item()
 
