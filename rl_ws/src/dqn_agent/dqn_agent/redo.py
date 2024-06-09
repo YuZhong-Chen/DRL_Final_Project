@@ -72,7 +72,7 @@ def _get_redo_masks(activations: dict[str, torch.Tensor], tau: float) -> torch.T
     masks = []
 
     # Last activation are the q-values, which are never reset
-    for _, activation in list(activations.items()):
+    for name, activation in list(activations.items())[:-1]:
         # Taking the mean here conforms to the expectation under D in the main paper's formula
         if activation.ndim == 4:
             # Conv layer
@@ -100,64 +100,42 @@ def _reset_dormant_neurons(model: NETWORK, redo_masks: torch.Tensor, use_lecun_i
     """Re-initializes the dormant neurons of a model."""
 
     layers = [(name, layer) for name, layer in list(model.named_modules())[1:]]
-    assert len(redo_masks) == len(layers), "Number of masks must match the number of layers"
+    assert len(redo_masks) == len(layers) - 1, "Number of masks must match the number of layers"
 
-    # Reset Conv2d Layers
-    for i in range(4):
+    # Reset the ingoing weights
+    # Here the mask size always matches the layer weight size
+    for i in range(len(layers[:-1])):
         mask = redo_masks[i]
-
-        # Skip if there are no dead neurons in this layer
-        if torch.all(~mask):
-            continue
-
-        # The initialization scheme is the same for conv2d and linear
-        # 1. Reset the ingoing weights using the initialization distribution
-        if use_lecun_init:
-            _lecun_normal_reinit(layers[i][1], mask)
-        else:
-            _kaiming_uniform_reinit(layers[i][1], mask)
-
-        # 2. Reset the outgoing weights to 0
-        # NOTE: Don't reset the bias for the following layer or else you will create new dormant neurons
-        if i == 3:  # conv4 -> advantage1 -> value1 (Special case: Transition from conv to linear layer)
-            # Reset the outgoing weights to 0 with a mask created from the conv filters
-            # Reset layer1
-            next_layer = layers[4][1]
-            num_repeatition = next_layer.weight.data.shape[1] // mask.shape[0]
-            linear_mask = torch.repeat_interleave(mask, num_repeatition)
-            next_layer.weight.data[:, linear_mask] = 0.0
-            # Reset layer3
-            next_layer = layers[6][1]
-            num_repeatition = next_layer.weight.data.shape[1] // mask.shape[0]
-            linear_mask = torch.repeat_interleave(mask, num_repeatition)
-            next_layer.weight.data[:, linear_mask] = 0.0
-        else:
-            # Reset the outgoing weights to 0
-            next_layer = layers[i + 1][1]
-            next_layer.weight.data[:, mask, ...] = 0.0
-
-    # Reset Linear Layers
-    for i in range(4, 8):
-        mask = redo_masks[i]
-
-        # Skip if there are no dead neurons in this layer
-        if torch.all(~mask):
-            continue
-
-        # The initialization scheme is the same for conv2d and linear
-        # 1. Reset the ingoing weights using the initialization distribution
-        if use_lecun_init:
-            _lecun_normal_reinit(layers[i][1], mask)
-        else:
-            _kaiming_uniform_reinit(layers[i][1], mask)
-
-        if i == 5 or i == 7:
-            continue
-
-        # 2. Reset the outgoing weights to 0
-        # NOTE: Don't reset the bias for the following layer or else you will create new dormant neurons
+        layer = layers[i][1]
         next_layer = layers[i + 1][1]
-        next_layer.weight.data[:, mask, ...] = 0.0
+        # Can be used to not reset outgoing weights in the Q-function
+        next_layer_name = layers[i + 1][0]
+
+        # Skip if there are no dead neurons
+        if torch.all(~mask):
+            # No dormant neurons in this layer
+            continue
+
+        # The initialization scheme is the same for conv2d and linear
+        # 1. Reset the ingoing weights using the initialization distribution
+        if use_lecun_init:
+            _lecun_normal_reinit(layer, mask)
+        else:
+            _kaiming_uniform_reinit(layer, mask)
+
+        # 2. Reset the outgoing weights to 0
+        # NOTE: Don't reset the bias for the following layer or else you will create new dormant neurons
+        # To not reset in the last layer: and not next_layer_name == 'q'
+        if isinstance(layer, nn.Conv2d) and isinstance(next_layer, nn.Linear):
+            # Special case: Transition from conv to linear layer
+            # Reset the outgoing weights to 0 with a mask created from the conv filters
+            num_repeatition = next_layer.weight.data.shape[1] // mask.shape[0]
+            linear_mask = torch.repeat_interleave(mask, num_repeatition)
+            next_layer.weight.data[:, linear_mask] = 0.0
+        else:
+            # Standard case: layer and next_layer are both conv or both linear
+            # Reset the outgoing weights to 0
+            next_layer.weight.data[:, mask, ...] = 0.0
 
     return model
 
@@ -167,11 +145,7 @@ def _reset_adam_moments(optimizer: optim.Adam, reset_masks: dict[str, torch.Tens
     """Resets the moments of the Adam optimizer for the dormant neurons."""
 
     assert isinstance(optimizer, optim.Adam), "Moment resetting currently only supported for Adam optimizer"
-
     for i, mask in enumerate(reset_masks):
-        if i == 5 or i == 7:
-            continue
-
         # Reset the moments for the weights
         optimizer.state_dict()["state"][i * 2]["exp_avg"][mask, ...] = 0.0
         optimizer.state_dict()["state"][i * 2]["exp_avg_sq"][mask, ...] = 0.0
@@ -185,20 +159,13 @@ def _reset_adam_moments(optimizer: optim.Adam, reset_masks: dict[str, torch.Tens
         optimizer.state_dict()["state"][i * 2 + 1]["step"].zero_()
 
         # Reset the moments for the output weights
-        if i == 3:
+        if len(optimizer.state_dict()["state"][i * 2]["exp_avg"].shape) == 4 and len(optimizer.state_dict()["state"][i * 2 + 2]["exp_avg"].shape) == 2:
             # Catch transition from conv to linear layer through moment shapes
-            # advantage1
             num_repeatition = optimizer.state_dict()["state"][i * 2 + 2]["exp_avg"].shape[1] // mask.shape[0]
             linear_mask = torch.repeat_interleave(mask, num_repeatition)
             optimizer.state_dict()["state"][i * 2 + 2]["exp_avg"][:, linear_mask] = 0.0
             optimizer.state_dict()["state"][i * 2 + 2]["exp_avg_sq"][:, linear_mask] = 0.0
             optimizer.state_dict()["state"][i * 2 + 2]["step"].zero_()
-            # value1
-            num_repeatition = optimizer.state_dict()["state"][i * 2 + 6]["exp_avg"].shape[1] // mask.shape[0]
-            linear_mask = torch.repeat_interleave(mask, num_repeatition)
-            optimizer.state_dict()["state"][i * 2 + 6]["exp_avg"][:, linear_mask] = 0.0
-            optimizer.state_dict()["state"][i * 2 + 6]["exp_avg_sq"][:, linear_mask] = 0.0
-            optimizer.state_dict()["state"][i * 2 + 6]["step"].zero_()
         else:
             # Standard case: layer and next_layer are both conv or both linear
             # Reset the outgoing weights to 0
@@ -242,7 +209,7 @@ def run_redo(
         # Calculate the masks actually used for resetting
         masks = _get_redo_masks(activations, tau)
         dormant_count = sum([torch.sum(mask) for mask in masks])
-        dormant_fraction = (dormant_count / sum([torch.numel(mask) for mask in masks]))
+        dormant_fraction = dormant_count / sum([torch.numel(mask) for mask in masks])
 
         # Re-initialize the dormant neurons and reset the Adam moments
         if re_initialize:

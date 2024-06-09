@@ -15,51 +15,44 @@ class NETWORK(nn.Module):
         self.conv3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=5, stride=2, padding=0)  # 32x32x32 -> 64x14x14
         self.conv4 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=5, stride=2, padding=0)  # 64x14x14 -> 64x5x5
 
-        self.advantage1 = nn.Linear(1600, 512)
-        self.advantage2 = nn.Linear(512, 6)
-
-        self.value1 = nn.Linear(1600, 512)
-        self.value2 = nn.Linear(512, 1)
+        self.linear1 = nn.Linear(1600, 512)
+        self.linear2 = nn.Linear(512, 256)
+        self.linear3 = nn.Linear(256, 6)
 
         # Initialize network's parameters
         self.InitNetwork()
 
     def InitNetwork(self):
-        nn.init.xavier_uniform_(self.conv1.weight, gain=nn.init.calculate_gain("leaky_relu"))
-        nn.init.xavier_uniform_(self.conv2.weight, gain=nn.init.calculate_gain("leaky_relu"))
-        nn.init.xavier_uniform_(self.conv3.weight, gain=nn.init.calculate_gain("leaky_relu"))
-        nn.init.xavier_uniform_(self.conv4.weight, gain=nn.init.calculate_gain("leaky_relu"))
-        nn.init.xavier_uniform_(self.advantage1.weight, gain=nn.init.calculate_gain("leaky_relu"))
-        nn.init.xavier_uniform_(self.advantage2.weight, gain=nn.init.calculate_gain("leaky_relu"))
-        nn.init.xavier_uniform_(self.value1.weight, gain=nn.init.calculate_gain("leaky_relu"))
-        nn.init.xavier_uniform_(self.value2.weight, gain=nn.init.calculate_gain("leaky_relu"))
+        nn.init.xavier_uniform_(self.conv1.weight, gain=nn.init.calculate_gain("relu"))
+        nn.init.xavier_uniform_(self.conv2.weight, gain=nn.init.calculate_gain("relu"))
+        nn.init.xavier_uniform_(self.conv3.weight, gain=nn.init.calculate_gain("relu"))
+        nn.init.xavier_uniform_(self.conv4.weight, gain=nn.init.calculate_gain("relu"))
+        nn.init.xavier_uniform_(self.linear1.weight, gain=nn.init.calculate_gain("relu"))
+        nn.init.xavier_uniform_(self.linear2.weight, gain=nn.init.calculate_gain("relu"))
+        nn.init.xavier_uniform_(self.linear3.weight, gain=nn.init.calculate_gain("relu"))
         nn.init.constant_(self.conv1.bias, 0)
         nn.init.constant_(self.conv2.bias, 0)
         nn.init.constant_(self.conv3.bias, 0)
         nn.init.constant_(self.conv4.bias, 0)
-        nn.init.constant_(self.advantage1.bias, 0)
-        nn.init.constant_(self.advantage2.bias, 0)
-        nn.init.constant_(self.value1.bias, 0)
-        nn.init.constant_(self.value2.bias, 0)
+        nn.init.constant_(self.linear1.bias, 0)
+        nn.init.constant_(self.linear2.bias, 0)
+        nn.init.constant_(self.linear3.bias, 0)
 
     def forward(self, x):
         # Transform the range of x from [0, 255] to [0, 1]
         x = x / 255.0
 
         # Feature map
-        feature_map = nn.functional.leaky_relu(self.conv1(x))
-        feature_map = nn.functional.leaky_relu(self.conv2(feature_map))
-        feature_map = nn.functional.leaky_relu(self.conv3(feature_map))
-        feature_map = nn.functional.leaky_relu(self.conv4(feature_map))
+        feature_map = nn.functional.relu(self.conv1(x))
+        feature_map = nn.functional.relu(self.conv2(feature_map))
+        feature_map = nn.functional.relu(self.conv3(feature_map))
+        feature_map = nn.functional.relu(self.conv4(feature_map))
         feature_map = torch.flatten(feature_map, start_dim=1)
-        feature_map = nn.functional.dropout(feature_map, p=0.2)
 
-        # Dueling DQN -> Q(s, a) = V(s) + A(s, a)
-        advantage = nn.functional.leaky_relu(self.advantage1(feature_map))
-        advantage = self.advantage2(advantage)
-        value = nn.functional.leaky_relu(self.value1(feature_map))
-        value = self.value2(value)
-        q_value = value + advantage - advantage.mean(dim=1, keepdim=True)
+        # DQN
+        q_value = nn.functional.relu(self.linear1(feature_map))
+        q_value = nn.functional.relu(self.linear2(q_value))
+        q_value = self.linear3(q_value)
 
         return q_value
 

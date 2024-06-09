@@ -17,7 +17,7 @@ class AGENT:
         self.config = {
             "batch_size": 128,
             "learning_rate": 0.0003,
-            "gamma": 0.85,
+            "gamma": 0.99,
             "replay_buffer_size": 10000,
             "warmup_steps": 5000,
             "tau": 0.001,
@@ -29,7 +29,7 @@ class AGENT:
             "epsilon_decay": 2000,
             "enable_redo": False,
             "redo_steps": 1000,
-            "redo_tau": 0.025,
+            "redo_tau": 0.1,
         }
 
         self.network = None
@@ -138,6 +138,7 @@ class AGENT:
         # Apply the REDO algorithm
         dormant_fraction = None
         if self.current_step % self.config["redo_steps"] == 0:
+            state_batch = self.replay_buffer.GetStateBatch(self.config["batch_size"])
             result = run_redo(state_batch=state_batch, model=self.network.learning_network, optimizer=self.optimizer, tau=self.config["redo_tau"], re_initialize=self.config["enable_redo"], use_lecun_init=False)
 
             self.network.learning_network = result["model"]

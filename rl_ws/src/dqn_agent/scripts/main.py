@@ -23,7 +23,7 @@ EPISODES = 10000
 SAVE_INTERVAL = 100
 
 PROJECT = "drl-final-project"
-PROJECT_NAME = PROJECT + "-dqn-" + datetime.datetime.now().strftime("%m-%d-%H-%M")
+PROJECT_NAME = PROJECT + "-dqn-no-dueling-" + datetime.datetime.now().strftime("%m-%d-%H-%M")
 
 LOAD_MODEL_PATH = None
 # LOAD_MODEL_PATH = "drl-final-project-dqn-06-01-20-17/models/episode_850"
