@@ -27,7 +27,7 @@ class AGENT:
             "epsilon_start": 1.0,
             "epsilon_end": 0.01,
             "epsilon_decay": 2000,
-            "enable_redo": False,
+            "enable_redo": True,
             "redo_steps": 1000,
             "redo_tau": 0.1,
         }
