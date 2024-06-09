@@ -48,10 +48,13 @@ class NETWORK(nn.Module):
         feature_map = nn.functional.relu(self.conv3(feature_map))
         feature_map = nn.functional.relu(self.conv4(feature_map))
         feature_map = torch.flatten(feature_map, start_dim=1)
+        feature_map = nn.functional.dropout(feature_map, p=0.2)
 
         # DQN
         q_value = nn.functional.relu(self.linear1(feature_map))
+        q_value = nn.functional.dropout(q_value, p=0.2)
         q_value = nn.functional.relu(self.linear2(q_value))
+        q_value = nn.functional.dropout(q_value, p=0.2)
         q_value = self.linear3(q_value)
 
         return q_value
