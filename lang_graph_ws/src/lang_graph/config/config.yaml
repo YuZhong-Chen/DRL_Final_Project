@@ -1,0 +1,16 @@
+node_descriptions: [
+  ["barbell.png", "Go to the barbell", [2.04, 2.77]],
+  ["blue_chair.png", "Go to the chair with blue color", [5.50, 1.87]],
+  ["door.png", "Go to the door", [5.99, -5.22]],
+  ["gas_stove2.png", "Go to the gas stove in kitchen", [8.28, -3.09]],
+  ["org_chair.png", "Go to the chair with orange color", [0.30, 3.37]],
+  ["refregerator.png", "Go to the refregerator with silver color in kitchen", [7.79, -0.98]],
+  ["sink.png", "Go to the sink in kitchen", [7.80, -4.41]],
+  ["sofa2.png", "Go to the sofa with white color", [-0.24, -0.16]],
+  ["yellow_table_with_ipad.png", "Go to the yellow table with ipad", [1.89, -2.33]],
+]
+
+input_text: [
+  "Go to the barbell", 
+  "Go to the chairs with blue color"
+]
