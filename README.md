@@ -4,13 +4,13 @@ This repo contains the final project of NTHU -  CS565700 - DRL.
 
 ## Overview
 
-PASS
+In this study, we advance the field of Vision and Language Navigation (VLN) by identifying the optimal reinforcement learning (RL) strategy for visual navigation agents. We developed a comprehensive pipeline for VLN tasks within a simulated residential environment and trained three distinct RL algorithms. Our findings demonstrate that the ReDo algorithm Sokar et al. (2023) outperforms all other evaluated agents, establishing it as the most effective approach among those tested.
 
 ## How to run the code
 
 ### lang_graph_ws
 
-Pleace follow the instructions in `/lang_graph_ws`.
+Please follow the instructions in `/lang_graph_ws`.
 
 ### kobuki_ws
 
