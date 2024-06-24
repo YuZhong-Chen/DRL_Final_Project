@@ -57,9 +57,18 @@ def generate_launch_description():
         output="screen",
     )
 
+    # Launch command rqt_robot_steering
+    launch_robot_steering = Node(
+        package="rqt_robot_steering",
+        executable="rqt_robot_steering",
+        name="rqt_robot_steering",
+        output="screen",
+    )
+
     ld = LaunchDescription(ARGUMENTS)
     ld.add_action(launch_kobuki_description)
     ld.add_action(launch_gazebo)
+    ld.add_action(launch_robot_steering)
     # ld.add_action(launch_gazebo_rl_env)
 
     return ld
