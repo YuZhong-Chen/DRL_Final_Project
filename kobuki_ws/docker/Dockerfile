@@ -86,6 +86,7 @@ RUN apt-get update && apt-get install -y \
     ros-$ROS_DISTRO-robot-localization \
     ros-$ROS_DISTRO-imu-tools \
     ros-$ROS_DISTRO-pointcloud-to-laserscan \
+    ros-$ROS_DISTRO-rqt-robot-steering \
     && rm -rf /var/lib/apt/lists/*
 
 COPY .bashrc /home/$USERNAME/.bashrc
