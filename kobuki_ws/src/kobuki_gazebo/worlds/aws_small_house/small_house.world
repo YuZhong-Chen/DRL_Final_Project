@@ -19,7 +19,7 @@
     <physics name='default_physics' default='0' type='ode'>
       <max_step_size>0.001</max_step_size>
       <real_time_factor>1</real_time_factor>
-      <real_time_update_rate>0</real_time_update_rate>
+      <real_time_update_rate>1000</real_time_update_rate>
     </physics>
     <scene>
       <ambient>0.4 0.4 0.4 1</ambient>
@@ -837,7 +837,7 @@
     </light>
     <!-- Enable Gazebo Global State -->
     <plugin name="gazebo_ros_state" filename="libgazebo_ros_state.so">
-      <update_rate>10.0</update_rate>
+      <update_rate>5.0</update_rate>
     </plugin>
   </world>
 </sdf>
