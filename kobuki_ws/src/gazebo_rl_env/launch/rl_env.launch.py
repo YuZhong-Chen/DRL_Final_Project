@@ -13,7 +13,7 @@ ARGUMENTS = [
     ),
     DeclareLaunchArgument(
         "launch_gzclient",
-        default_value="False",
+        default_value="True",
         description="Launch gzclient, by default is False, which means headless mode",
     ),
     DeclareLaunchArgument(
@@ -60,6 +60,6 @@ def generate_launch_description():
     ld = LaunchDescription(ARGUMENTS)
     ld.add_action(launch_kobuki_description)
     ld.add_action(launch_gazebo)
-    ld.add_action(launch_gazebo_rl_env)
+    # ld.add_action(launch_gazebo_rl_env)
 
     return ld
