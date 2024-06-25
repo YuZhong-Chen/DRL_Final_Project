@@ -3,6 +3,7 @@
     "name": "kobuki_ws",
     "dockerComposeFile": "../docker/compose.yaml",
     "service": "kobuki-ws",
+    "runServices": ["kobuki-ws"],
     // workspace settings
     "workspaceFolder": "/home/DRL_Final_Project/kobuki_ws",
     // Vscode extensions

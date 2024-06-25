@@ -57,18 +57,19 @@ def generate_launch_description():
         output="screen",
     )
 
-    # Launch command rqt_robot_steering
-    launch_robot_steering = Node(
-        package="rqt_robot_steering",
-        executable="rqt_robot_steering",
-        name="rqt_robot_steering",
+    # Launch teleop_twist_keyboard
+    launch_teleop_twist_keyboard = Node(
+        package="teleop_twist_keyboard",
+        executable="teleop_twist_keyboard",
+        name="teleop_twist_keyboard",
         output="screen",
+        prefix="xterm -e",
     )
 
     ld = LaunchDescription(ARGUMENTS)
     ld.add_action(launch_kobuki_description)
     ld.add_action(launch_gazebo)
-    ld.add_action(launch_robot_steering)
+    ld.add_action(launch_teleop_twist_keyboard)
     # ld.add_action(launch_gazebo_rl_env)
 
     return ld

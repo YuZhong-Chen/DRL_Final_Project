@@ -89,6 +89,11 @@ RUN apt-get update && apt-get install -y \
     ros-$ROS_DISTRO-rqt-robot-steering \
     && rm -rf /var/lib/apt/lists/*
 
+# Install xterm
+RUN apt-get update && apt-get install -y \
+    xterm \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY .bashrc /home/$USERNAME/.bashrc
 
 # [Optional] Set the default user. Omit if you want to keep the default as root.
